@@ -6,7 +6,10 @@ Jest to prosta aplikacja lista zadań stworzona przy użyciu biblioteki `tkinter
 - Dodawanie zadań do listy.
 - Wyświetlanie dodanych zadań w polu listy.
 - Pole do wpisywania zadań.
-- Przycisk do dodawania i (przyszłe) usuwania zadań.
+- Przycisk do dodawania i usuwania zadań.
+- Oznaczenie zadania jako wykonane.
+- (Wkrótce) Zapis danych do pliku json, automatycznie wczytywanych przy uruchomieniu aplikacji.
+
 
 ## Wymagania:
 - Python 3.11
