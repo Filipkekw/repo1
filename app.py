@@ -19,7 +19,7 @@ root.geometry("600x400")
 task_entry = tk.Entry(root, width=50)
 task_entry.pack(pady=10)
 
-# Przycisk do dodawania i usuwania zadań (tylko grafika)
+# Przycisk do dodawania zadań (tylko grafika)
 add_button = tk.Button(root, text="Dodaj zadanie", width=12, command=add_to_list)
 add_button.pack(pady=5)
 
