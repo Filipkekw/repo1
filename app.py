@@ -39,7 +39,7 @@ def add_task(text):
     task_label.pack(side="left", fill="x", expand=True)
 
     # Przycisk do usuwania konkretnego zadania
-    delete_button = tk.Button(task_frame, text="X", command=lambda: remove_task(task_frame))
+    delete_button = tk.Button(task_frame, text="Usuń", command=lambda: remove_task(task_frame))
     delete_button.pack(side="right")
 
 # Tworzenie głównego okna
