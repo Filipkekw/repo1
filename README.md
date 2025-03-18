@@ -1,6 +1,6 @@
-# Aplikacja Lista Zadań (To-Do List)
+# Aplikacja Lista Zadań z generatorem planu dnia (To-Do List)
 
-Jest to prosta aplikacja lista zadań stworzona przy użyciu biblioteki `tkinter` w Pythonie. Aplikacja pozwala użytkownikowi dodawać zadania do listy i wyświetlać je w interfejsie graficznym.
+Jest to prosta aplikacja lista zadań stworzona przy użyciu biblioteki `tkinter` w Pythonie. Aplikacja pozwala użytkownikowi dodawać zadania do listy i wyświetlać je w interfejsie graficznym. Posiada również funkcję generowania planu dnia roboczego, wolnego od pracy lub na pracy zdalej w zależności od wyboru użytkownika.
 
 ## Funkcje:
 - Dodawanie zadań do listy.
@@ -9,7 +9,7 @@ Jest to prosta aplikacja lista zadań stworzona przy użyciu biblioteki `tkinter
 - Przycisk do dodawania i usuwania zadań.
 - Oznaczenie zadania jako wykonane.
 - Zapis danych do pliku json, automatycznie wczytywanych przy uruchomieniu aplikacji.
-
+- Możliwość wygenerowania planu dnia roboczego, wolnego od pracy lub pracy zdalnej.
 
 ## Wymagania:
 - Python 3.11
