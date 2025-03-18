@@ -8,7 +8,7 @@ Jest to prosta aplikacja lista zadań stworzona przy użyciu biblioteki `tkinter
 - Pole do wpisywania zadań.
 - Przycisk do dodawania i usuwania zadań.
 - Oznaczenie zadania jako wykonane.
-- (Wkrótce) Zapis danych do pliku json, automatycznie wczytywanych przy uruchomieniu aplikacji.
+- Zapis danych do pliku json, automatycznie wczytywanych przy uruchomieniu aplikacji.
 
 
 ## Wymagania:
