@@ -65,75 +65,76 @@ class Task:
 
 class TaskManager:
     def __init__(self, container):
-        self.container = container  # Kontener dla zadań
-        self.tasks = []  # Lista przechowywanych zadań
+        self.container = container
+        self.tasks = []
 
     def add_task(self, text, done=False):
-        task = Task(self.container, text, done, self.remove_task, self.save_tasks)  # Tworzenie zadania
-        self.tasks.append(task)  # Dodanie zadania do listy
-        self.save_tasks()  # Zapisanie zmian
+        task = Task(self.container, text, done, self.remove_task, self.save_tasks)
+        self.tasks.append(task)
+        self.save_tasks()
 
     def remove_task(self, task):
-        self.tasks.remove(task)  # Usunięcie zadania z listy
-        self.save_tasks()  # Zapisanie stanu listy
+        self.tasks.remove(task)
+        self.save_tasks()
 
     def save_tasks(self):
-        tasks_data = [{"text": task.text, "done": task.done} for task in self.tasks]  # Konwersja na JSON
+        tasks_data = [{"text": task.text, "done": task.done} for task in self.tasks]
         with open(DATA_FILE, "w") as file:
-            json.dump(tasks_data, file)  # Zapis do pliku
+            json.dump(tasks_data, file)
 
     def load_tasks(self):
-        if os.path.exists(DATA_FILE):  # Sprawdzenie, czy plik istnieje
+        if os.path.exists(DATA_FILE):
             with open(DATA_FILE, "r") as file:
                 try:
-                    tasks_data = json.load(file)  # Odczyt danych
+                    tasks_data = json.load(file)
                     for task in tasks_data:
-                        self.add_task(task["text"], task["done"])  # Przywrócenie zadań
+                        self.add_task(task["text"], task["done"])
                 except json.JSONDecodeError:
-                    messagebox.showerror("Błąd", "Nie można odczytać pliku.")  # Obsługa błędu JSON
+                    messagebox.showerror("Błąd", "Nie można odczytać pliku z zadaniami.")
 
 class ToDoApp:
     def __init__(self, root):
-        self.root = root  # Główne okno aplikacji
-        self.root.title("To-Do List")  # Ustawienie tytułu okna
-        self.root.geometry("600x800")  # Rozmiar okna
+        self.root = root
+        self.root.title("To-Do List")
+        self.root.geometry("600x800")
 
-        self.task_entry = tk.Entry(root, width=50)  # Pole tekstowe do wpisywania zadań
+        self.task_entry = tk.Entry(root, width=50)
         self.task_entry.pack(pady=10)
 
-        self.add_button = tk.Button(root, text="Dodaj zadanie", command=self.add_task)  # Przycisk dodawania zadania
+        self.add_button = tk.Button(root, text="Dodaj zadanie", command=self.add_task)
         self.add_button.pack(pady=5)
 
-        self.task_container = tk.Frame(root)  # Kontener na listę zadań
+        self.task_container = tk.Frame(root)
         self.task_container.pack(pady=10, fill="both", expand=True)
 
-        self.task_manager = TaskManager(self.task_container)  # Inicjalizacja menedżera zadań
-        self.task_manager.load_tasks()  # Wczytanie zapisanych zadań
+        self.task_manager = TaskManager(self.task_container)
+        self.task_manager.load_tasks()
 
-        self.generator_label = tk.Label(root, text="Wybierz rodzaj dnia:")  # Etykieta do wyboru trybu dnia
+        self.generator_label = tk.Label(root, text="Wybierz rodzaj dnia:")
         self.generator_label.pack()
 
-        self.day_type_var = tk.StringVar(value="Plan na dzień")  # Zmienna przechowująca wybór trybu dnia
-        self.day_options = ["Dzień roboczy", "Praca zdalna", "Dzień wolny"]  # Możliwe tryby dnia
-        self.day_menu = tk.OptionMenu(root, self.day_type_var, *self.day_options)  # Menu wyboru
+        self.day_type_var = tk.StringVar(value="Plan na dzień")
+        self.day_options = ["Dzień roboczy", "Praca zdalna", "Dzień wolny"]
+        self.day_menu = tk.OptionMenu(root, self.day_type_var, *self.day_options)
         self.day_menu.pack()
-        self.generate_button = tk.Button(root, text="Wygeneruj plan dnia", command=self.generate_day_plan)  # Przycisk generowania planu
+
+        self.generate_button = tk.Button(root, text="Wygeneruj plan dnia", command=self.generate_day_plan)
         self.generate_button.pack(pady=5)
 
     def add_task(self):
-        text = self.task_entry.get()  # Pobranie tekstu zadania
-        if text.strip():  # Sprawdzenie, czy wpis nie jest pusty
-            self.task_manager.add_task(text)  # Dodanie zadania
-            self.task_entry.delete(0, tk.END)  # Wyczyszczenie pola tekstowego
+        text = self.task_entry.get()
+        if text.strip():
+            self.task_manager.add_task(text)
+            self.task_entry.delete(0, tk.END)
         else:
-            messagebox.showwarning("Uwaga!", "Nie można dodać pustego zadania!")  # Komunikat ostrzegawczy
+            messagebox.showwarning("Uwaga!", "Nie można dodać pustego zadania!")
 
     def generate_day_plan(self):
-        day_type = self.day_type_var.get()  # Pobranie wybranego trybu dnia
-        tasks = random.choice(day_variations[day_type])  # Losowy wybór harmonogramu
+        day_type = self.day_type_var.get()
+        tasks = random.choice(day_variations[day_type])
         for time, task in tasks:
-            self.task_manager.add_task(f"{time} - {task}")  # Dodanie zadań do listy
+            self.task_manager.add_task(f"{time} - {task} [AUTO]")
 
 root = tk.Tk()
 app = ToDoApp(root)
-root.mainloop()  # Uruchomienie aplikacji
+root.mainloop()
