@@ -117,6 +117,21 @@ class TaskManager:
                 except json.JSONDecodeError:  # Obsługuje błąd w przypadku uszkodzonego pliku JSON
                     messagebox.showerror("Błąd", "Nie można odczytać pliku z zadaniami.")  # Wyświetla komunikat o błędzie
 
+    def sort_tasks(self):
+        # Sortuje zadania według godziny (przyjmuje format "HH:MM - treść")
+        def extract_time(task_text):
+            try:
+                time_part = task_text.split(" - ")[0]
+                hours, minutes = map(int, time_part.split(":"))
+                return hours * 60 + minutes
+            except Exception:
+                return float("inf")  # Umieszcza błędne wpisy na końcu
+
+        self.tasks.sort(key=lambda task: extract_time(task.text))
+        for task in self.tasks:
+            task.frame.pack_forget()  # Ukrywa wszystkie zadania
+        for task in self.tasks:
+            task.frame.pack(fill="x", pady=2)  # Ponownie wyświetla posortowane zadania
 
 class TaskGenerator:
     def __init__(self, task_manager, day_type_var):
@@ -144,6 +159,11 @@ class ToDoApp:
         self.task_entry = tk.Entry(root, width=50)  # Pole tekstowe o szerokości 50 znaków
         self.task_entry.pack(pady=10)  # Umieszcza pole w oknie z odstępem 10 pikseli w pionie
 
+        # Tworzy pole do wprowadzania godziny zadania
+        self.time_entry = tk.Entry(root, width=10)  # Pole tekstowe o szerokości 10 znaków na godzinę
+        self.time_entry.pack(pady=5)  # Umieszcza pole w oknie z odstępem 5 pikseli w pionie
+        self.time_entry.insert(0, "HH:MM")  # Domyślna wartość pola
+
         # Tworzy przycisk do dodawania zadań
         self.add_button = tk.Button(root, text="Dodaj zadanie", command=self.add_task)  # Przycisk wywołujący metodę add_task
         self.add_button.pack(pady=5)  # Umieszcza przycisk w oknie z odstępem 5 pikseli w pionie
@@ -163,18 +183,42 @@ class ToDoApp:
 
         # Inicjalizuje generator zadań i przycisk do generowania planu dnia
         self.task_generator = TaskGenerator(self.task_manager, self.day_type_var)  # Tworzy instancję generatora zadań
-        self.generate_button = tk.Button(root, text="Wygeneruj plan dnia", command=self.task_generator.generate_day_plan)  # Przycisk do generowania planu
+        self.generate_button = tk.Button(root, text="Wygeneruj plan dnia", command=self.generate_sorted_plan)  # Przycisk do generowania planu
         self.generate_button.pack(pady=5)  # Umieszcza przycisk w oknie z odstępem 5 pikseli w pionie
 
     def add_task(self):
         # Dodaje nowe zadanie do listy
         text = self.task_entry.get()  # Pobiera tekst wprowadzony przez użytkownika
+        time = self.time_entry.get()  # Pobiera godzinę wprowadzoną przez użytkownika
+
+        # Sprawdza poprawność formatu godziny (HH:MM)
+        if not self.validate_time(time):
+            messagebox.showwarning("Uwaga!", "Nieprawidłowy format godziny. Użyj HH:MM.")
+            return
+
         if text.strip():  # Sprawdza, czy tekst nie jest pusty (ignorując białe znaki)
-            self.task_manager.add_task(text)  # Dodaje zadanie do TaskManagera
+            self.task_manager.add_task(f"{time} - {text}")  # Dodaje zadanie do TaskManagera z godziną
             self.task_entry.delete(0, tk.END)  # Czyści pole tekstowe po dodaniu
+            self.time_entry.delete(0, tk.END)  # Czyści pole z godziną
+            self.time_entry.insert(0, "HH:MM")  # Przywraca domyślną wartość
+            self.task_manager.sort_tasks()  # Sortuje zadania po godzinie
         else:
             # Wyświetla ostrzeżenie, jeśli użytkownik próbuje dodać puste zadanie
             messagebox.showwarning("Uwaga!", "Nie można dodać pustego zadania!")
+
+    def validate_time(self, time):
+        # Walidacja formatu godziny (HH:MM)
+        try:
+            hours, minutes = map(int, time.split(":"))
+            return 0 <= hours < 24 and 0 <= minutes < 60
+        except ValueError:
+            return False
+
+    def generate_sorted_plan(self):
+        # Generuje i sortuje plan dnia
+        self.task_generator.generate_day_plan()  # Generuje plan dnia
+        self.task_manager.sort_tasks()  # Sortuje zadania po godzinie
+
 
 root = tk.Tk()
 app = ToDoApp(root)
