@@ -3,6 +3,7 @@ from tkinter import messagebox  # Importowanie modułu do wyświetlania komunika
 import json  # Importowanie modułu do obsługi plików JSON
 import os  # Importowanie modułu do operacji na plikach
 import random  # Importowanie modułu do losowego wyboru danych
+import datetime # Importuje moduł datetime do obsługi dat i godzin
 
 DATA_FILE = "tasks.json"  # Nazwa pliku przechowującego zadania
 DAY_VARIATIONS_FILE = "day_variations.json"  # Plik JSON z harmonogramami dni
@@ -160,9 +161,9 @@ class ToDoApp:
         self.task_entry.pack(pady=10)  # Umieszcza pole w oknie z odstępem 10 pikseli w pionie
 
         # Tworzy pole do wprowadzania godziny zadania
-        self.time_entry = tk.Entry(root, width=10)  # Pole tekstowe o szerokości 10 znaków na godzinę
+        self.time_entry = tk.Entry(root, width=5)  # Pole tekstowe o szerokości 10 znaków na godzinę
         self.time_entry.pack(pady=5)  # Umieszcza pole w oknie z odstępem 5 pikseli w pionie
-        self.time_entry.insert(0, "HH:MM")  # Domyślna wartość pola
+        self.time_entry.insert(0, "00:00")  # Domyślna wartość pola
 
         # Tworzy przycisk do dodawania zadań
         self.add_button = tk.Button(root, text="Dodaj zadanie", command=self.add_task)  # Przycisk wywołujący metodę add_task
@@ -186,6 +187,9 @@ class ToDoApp:
         self.generate_button = tk.Button(root, text="Wygeneruj plan dnia", command=self.generate_sorted_plan)  # Przycisk do generowania planu
         self.generate_button.pack(pady=5)  # Umieszcza przycisk w oknie z odstępem 5 pikseli w pionie
 
+        # Sprawdza, czy harmonogram został już wygenerowany dzisiaj
+        self.schedule_generated_today = self.check_if_schedule_exists()
+
     def add_task(self):
         # Dodaje nowe zadanie do listy
         text = self.task_entry.get()  # Pobiera tekst wprowadzony przez użytkownika
@@ -200,7 +204,7 @@ class ToDoApp:
             self.task_manager.add_task(f"{time} - {text}")  # Dodaje zadanie do TaskManagera z godziną
             self.task_entry.delete(0, tk.END)  # Czyści pole tekstowe po dodaniu
             self.time_entry.delete(0, tk.END)  # Czyści pole z godziną
-            self.time_entry.insert(0, "HH:MM")  # Przywraca domyślną wartość
+            self.time_entry.insert(0, "00:00")  # Przywraca domyślną wartość
             self.task_manager.sort_tasks()  # Sortuje zadania po godzinie
         else:
             # Wyświetla ostrzeżenie, jeśli użytkownik próbuje dodać puste zadanie
@@ -215,9 +219,31 @@ class ToDoApp:
             return False
 
     def generate_sorted_plan(self):
-        # Generuje i sortuje plan dnia
+        # Generuje i sortuje plan dnia oraz zapisuje go do pliku JSON
+        if self.schedule_generated_today:
+            messagebox.showwarning("Uwaga!", "Harmonogram został już dziś wygenerowany.")
+            return
+
         self.task_generator.generate_day_plan()  # Generuje plan dnia
         self.task_manager.sort_tasks()  # Sortuje zadania po godzinie
+        self.save_schedule_to_file()  # Zapisuje harmonogram do pliku
+        self.schedule_generated_today = True  # Ustawia flagę, że harmonogram został wygenerowany
+
+    def save_schedule_to_file(self):
+        # Zapisuje wygenerowany harmonogram do pliku schedule_rok_miesiac_dzien.json
+        today = datetime.date.today()  # Pobiera dzisiejszą datę
+        filename = f"schedule_{today.year}_{today.month:02d}_{today.day:02d}.json"  # Tworzy nazwę pliku
+        schedule = [task.text for task in self.task_manager.tasks]  # Pobiera listę zadań
+
+        # Zapisuje harmonogram do pliku JSON
+        with open(filename, "w", encoding="utf-8") as file:
+            json.dump(schedule, file, ensure_ascii=False, indent=4)
+
+    def check_if_schedule_exists(self):
+        # Sprawdza, czy harmonogram dla bieżącej daty już istnieje
+        today = datetime.date.today()
+        filename = f"schedule_{today.year}_{today.month:02d}_{today.day:02d}.json"
+        return os.path.exists(filename)
 
 
 root = tk.Tk()
