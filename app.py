@@ -1,13 +1,42 @@
-import tkinter as tk  # Importuje bibliotekę tkinter do tworzenia GUI
-from tkinter import messagebox, ttk  # Importuje moduły do okien dialogowych i stylów
-import json  # Importuje moduł JSON do zapisu i odczytu danych
-import os  # Importuje moduł os do operacji na plikach
-import random  # Importuje moduł random do losowego generowania planów dnia
-import datetime  # Importuje moduł datetime do obsługi dat i godzin
+import customtkinter as ctk  # Importowanie biblioteki CustomTkinter do tworzenia interfejsów użytkownika.
+import json  # Importowanie modułu do obsługi plików JSON.
+import os  # Importowanie modułu do operacji na plikach i katalogach.
+import random  # Importowanie modułu do losowego wyboru elementów.
+import datetime  # Importowanie modułu do obsługi dat i czasu.
+import reportlab  # Importowanie biblioteki do generowania plików PDF.
+from reportlab.lib.pagesizes import A4  # Importowanie stałej określającej rozmiar strony A4.
+from reportlab.pdfgen import canvas  # Importowanie narzędzia do rysowania na stronach PDF.
+from tkinter import filedialog  # Importowanie modułu do obsługi okien dialogowych do wyboru plików.
 
-DATA_FILE = "tasks.json"  # Ścieżka do pliku z zapisanymi zadaniami
-DAY_VARIATIONS_FILE = "day_variations.json"  # Ścieżka do pliku z wariantami harmonogramów dnia
+# Stałe dla plików danych
+DATA_FILE = "tasks.json"  # Nazwa pliku, w którym przechowywane są zadania.
+DAY_VARIATIONS_FILE = "day_variations.json"  # Nazwa pliku przechowującego różne warianty dni.
 
+class CustomMessageBox(ctk.CTkToplevel):  # Klasa definiująca niestandardowe okno dialogowe (potwierdzenia).
+    def __init__(self, parent, title, message, callback):  # Konstruktor klasy, inicjalizuje okno dialogowe.
+        super().__init__(parent)  # Wywołanie konstruktora klasy nadrzędnej (CTkToplevel).
+        self.title(title)  # Ustawienie tytułu okna.
+        self.geometry("300x150")  # Ustawienie rozmiaru okna na 300x150 pikseli.
+        self.callback = callback  # Przypisanie funkcji zwrotnej do zmiennej instancji.
+        self.grab_set()  # Ustawienie okna jako modalnego (blokuje interakcję z głównym oknem).
+
+        ctk.CTkLabel(self, text=message, font=("Arial", 14)).pack(pady=10)  
+        # Dodanie etykiety z podanym komunikatem i czcionką Arial o rozmiarze 14.
+
+        button_frame = ctk.CTkFrame(self)  # Tworzenie ramki do umieszczenia przycisków.
+        button_frame.pack(pady=10)  # Wyświetlenie ramki z marginesem pionowym 10 pikseli.
+
+        ctk.CTkButton(button_frame, text="Tak", fg_color="green", command=lambda: self.answer(True)).pack(side="left", padx=10)  
+        # Dodanie zielonego przycisku "Tak", który po kliknięciu wywołuje metodę answer(True).
+
+        ctk.CTkButton(button_frame, text="Nie", fg_color="red", command=lambda: self.answer(False)).pack(side="right", padx=10)  
+        # Dodanie czerwonego przycisku "Nie", który po kliknięciu wywołuje metodę answer(False).
+
+    def answer(self, response):  # Metoda obsługująca odpowiedź użytkownika.
+        self.callback(response)  # Wywołanie funkcji zwrotnej z odpowiedzią użytkownika (True lub False).
+        self.destroy()  # Zamknięcie okna dialogowego.
+
+# Zapisuje domyślne warianty harmonogramów dnia
 def save_default_day_variations():
     default_variations = {
         "Dzień roboczy": [
@@ -31,290 +60,280 @@ def save_default_day_variations():
         with open(DAY_VARIATIONS_FILE, "w", encoding="utf-8") as file:
             json.dump(default_variations, file, ensure_ascii=False, indent=4)
 
-# Wywołanie funkcji, aby upewnić się, że plik z predefiniowanymi zadaniami istnieje
 save_default_day_variations()
 
-
+# Ładuje harmonogramy dnia
 def load_day_variations():
-    if os.path.exists(DAY_VARIATIONS_FILE):  # Sprawdza, czy plik istnieje
-        with open(DAY_VARIATIONS_FILE, "r", encoding="utf-8") as file:  # Otwiera plik w trybie odczytu
+    if os.path.exists(DAY_VARIATIONS_FILE):
+        with open(DAY_VARIATIONS_FILE, "r", encoding="utf-8") as file:
             try:
-                return json.load(file)  # Próbuje załadować dane JSON
-            except json.JSONDecodeError:  # Obsługuje błąd w przypadku uszkodzonego pliku JSON
-                messagebox.showerror("Błąd", "Nie można odczytać pliku z harmonogramami dni.")  # Wyświetla komunikat o błędzie
-    return {}  # Zwraca pusty słownik, jeśli plik nie istnieje lub nie można go odczytać
+                return json.load(file)
+            except json.JSONDecodeError:
+                return {}
+    return {}
 
-day_variations = load_day_variations()  # Ładuje dostępne warianty planów dnia
-day_types = list(day_variations.keys())  # Tworzy listę nazw wariantów dnia
+day_variations = load_day_variations()
+day_types = list(day_variations.keys())
 
-class ToDoApp:
-    def __init__(self, root):
-        self.root = root  # Główne okno aplikacji
-        self.root.title("To-Do List")  # Ustawia tytuł okna
-        self.root.geometry("600x900")  # Ustawia rozmiar okna
-        self.root.configure(bg="#f7f7f7")  # Ustawia kolor tła
+class ToDoApp(ctk.CTk):  # Klasa głównego okna aplikacji To-Do List, dziedziczy po CTk.
+    def __init__(self):  # Konstruktor klasy.
+        super().__init__()  # Wywołanie konstruktora klasy nadrzędnej.
+        self.title("To-Do List")  # Ustawienie tytułu okna aplikacji.
+        self.geometry("600x900")  # Ustawienie rozmiaru okna na 600x900 pikseli.
 
-        self.task_container = ttk.Frame(root)  # Tworzy kontener na zadania
-        self.task_manager = TaskManager(self.task_container)  # Tworzy obiekt do zarządzania zadaniami
-        self.day_type_var = tk.StringVar(value="Plan dnia")  # Tworzy zmienną przechowującą typ dnia
-        self.task_generator = TaskGenerator(self.task_manager, self.day_type_var, day_variations)  # Tworzy generator planu dnia
+        self.task_manager = TaskManager(self)  # Tworzenie obiektu menedżera zadań.
+        self.day_type_var = ctk.StringVar(value="Plan dnia")  # Tworzenie zmiennej przechowującej typ dnia.
+        self.task_generator = TaskGenerator(self.task_manager, self.day_type_var, day_variations)  
+        # Tworzenie obiektu generatora zadań.
 
-        self.style = ttk.Style()  # Tworzy styl dla elementów interfejsu
-        self.style.configure("TButton", font=("Arial", 12), padding=5)  # Ustawia styl przycisków
-        self.style.configure("TLabel", font=("Arial", 12))  # Ustawia styl etykiet
-        self.style.configure("TEntry", font=("Arial", 12), padding=5)  # Ustawia styl pól tekstowych
-        self.style.configure("TCheckbutton", font=("Arial", 12))  # Ustawia styl pól wyboru
-        self.style.configure("AddButton.TButton", foreground="green", background="green")  # Styl dla przycisku dodawania
-        self.style.configure("DeleteButton.TButton", foreground="red", background="red")  # Styl dla przycisku usuwania
-        self.style.configure("GenerateButton.TButton", foreground="blue", background="blue")  # Styl dla przycisku generowania planu
+        ctk.CTkLabel(self, text="Twoja Lista Zadań", font=("Arial", 16, "bold")).pack(pady=10)  
+        # Etykieta tytułowa aplikacji.
 
-        header_frame = tk.Frame(root, bg="#f7f7f7")  # Tworzy ramkę nagłówka
-        header_frame.pack(pady=20)  # Ustawia margines pionowy
-        header_label = tk.Label(header_frame, text="Twoja Lista Zadań", bg="#f7f7f7", fg="#333333", font=("Helvetica", 16, "bold"))  # Tworzy nagłówek
-        header_label.pack()  # Wyświetla nagłówek
+         # Tworzymy ramkę górną, w której będą dwie kolumny: left_frame i right_frame
+        top_frame = ctk.CTkFrame(self)
+        top_frame.pack(pady=5, fill="x")
 
-        self.task_entry = ttk.Entry(root, width=50, foreground="gray")
-        self.task_entry.pack(pady=10)
-        self.task_entry.insert(0, "Treść zadania")  # Ustawiamy placeholder na start
-        self.task_entry.bind("<FocusIn>", self.clear_task_placeholder)
-        self.task_entry.bind("<FocusOut>", self.restore_task_placeholder)
+        # Kolumna lewa
+        left_frame = ctk.CTkFrame(top_frame)
+        left_frame.pack(side="left", fill="both", expand=True, padx=5)
 
-        self.time_entry = ttk.Entry(root, width=7, foreground="gray")  # Tworzy pole do wpisywania godziny z domyślnym kolorem tekstu
-        self.time_entry.pack(pady=5)  # Ustawia margines
-        self.time_entry.insert(0, "HH:MM")  # Wstawia domyślną wartość placeholdera
-        self.time_entry.bind("<FocusIn>", self.clear_placeholder)  # Usuwa placeholder po kliknięciu
-        self.time_entry.bind("<FocusOut>", self.restore_placeholder)  # Przywraca placeholder po opuszczeniu pola
-        self.time_entry.bind("<KeyRelease>", self.format_time_entry)  # Automatycznie dodaje ":" po dwóch cyfrach
+        # Kolumna prawa
+        right_frame = ctk.CTkFrame(top_frame)
+        right_frame.pack(side="right", fill="both", expand=True, padx=5)
 
-        self.add_button = ttk.Button(root, text="Dodaj zadanie", command=self.add_task, style="AddButton.TButton")  # Tworzy przycisk dodawania zadania
-        self.add_button.pack(pady=5)  # Ustawia margines
+        # --- LEWA KOLUMNA ---
+        self.task_entry = ctk.CTkEntry(left_frame, width=250, placeholder_text="Treść zadania")
+        self.task_entry.pack(pady=5)
 
-        self.day_menu = ttk.OptionMenu(root, self.day_type_var, "Plan dnia", *day_types)  # Tworzy rozwijane menu wyboru typu dnia
-        self.day_menu.pack(pady=5)  # Ustawia margines
+        self.time_entry = ctk.CTkEntry(left_frame, width=60, placeholder_text="HH:MM")
+        self.time_entry.pack(pady=5)
+        self.time_entry.bind("<KeyRelease>", self.format_time_entry)
 
-        self.generate_button = ttk.Button(root, text="Wygeneruj plan dnia", command=self.generate_sorted_plan, style="GenerateButton.TButton")  # Tworzy przycisk generowania planu dnia
-        self.generate_button.pack(pady=5)  # Ustawia margines
+        self.add_button = ctk.CTkButton(left_frame, text="Dodaj zadanie", fg_color="green", hover_color="darkgreen", command=self.add_task)
+        self.add_button.pack(pady=5)
 
-        self.task_container.pack(pady=10, fill="both", expand=True)  # Wyświetla kontener na zadania
-        self.task_manager.load_tasks()  # Wczytuje wcześniej zapisane zadania
+        # --- PRAWA KOLUMNA ---
+        self.day_menu = ctk.CTkComboBox(right_frame, values=day_types, variable=self.day_type_var, state="readonly")
+        self.day_menu.pack(pady=5)
 
-    def clear_placeholder(self, event):
-        if self.time_entry.get() == "HH:MM":  # Sprawdza, czy w polu jest placeholder
-            self.time_entry.delete(0, tk.END)  # Usuwa placeholder
-            self.time_entry.config(foreground="black")  # Zmienia kolor tekstu na czarny
+        self.generate_button = ctk.CTkButton(right_frame, text="Wygeneruj plan dnia", fg_color="blue", hover_color="darkblue", command=self.generate_sorted_plan)
+        self.generate_button.pack(pady=5)
 
-    def restore_placeholder(self, event):
-        if not self.time_entry.get():  # Sprawdza, czy pole jest puste
-            self.time_entry.insert(0, "HH:MM")  # Wstawia placeholder
-            self.time_entry.config(foreground="gray")  # Zmienia kolor tekstu na szary
-    
-    def clear_task_placeholder(self, event):
-        if self.task_entry.get() == "Treść zadania":
-            self.task_entry.delete(0, tk.END)
-            self.task_entry.config(foreground="black")
+        self.export_button = ctk.CTkButton(right_frame, text="Eksportuj do PDF", fg_color="purple", hover_color="darkviolet", command=self.export_to_pdf)
+        self.export_button.pack(pady=5)
 
-    def restore_task_placeholder(self, event):
-        """Sprawdza, czy pole zadania jest puste i przywraca placeholder."""
-        self.root.after(10, lambda: self._check_task_placeholder())
+        self.task_container = ctk.CTkFrame(self)  # Kontener dla listy zadań.
+        self.task_container.pack(pady=10, fill="both", expand=True)
 
-    def _check_task_placeholder(self):
-        """Przywraca placeholder 'Treść zadania', jeśli pole jest puste."""
-        if self.task_entry.get().strip() == "":
-            self.task_entry.insert(0, "Treść zadania")
-            self.task_entry.config(foreground="gray")
+        self.task_manager.load_tasks()  # Załadowanie zadań z pliku.
 
-    def format_time_entry(self, event):
+    def format_time_entry(self, event):  # Funkcja automatycznie formatująca wpisaną godzinę.
         text = self.time_entry.get()
-
-        # Zezwalamy tylko na cyfry i ":"
-        if not all(c.isdigit() or c == ":" for c in text):
-            self.time_entry.delete(len(text) - 1, tk.END)
-            return
-
-        # Automatyczne wstawianie ":"
-        if len(text) == 2 and ":" not in text:
+        if len(text) == 2 and ":" not in text:  # Jeśli wpisano dwie cyfry, dodaj dwukropek.
             self.time_entry.insert(2, ":")
 
-        # Dodatkowe sprawdzenie poprawności formatu
-        if len(text) > 5:
-            self.time_entry.delete(5, tk.END)
-    
-    def validate_time(self, time_text):
+    def validate_time(self, time_text):  # Funkcja sprawdzająca poprawność formatu czasu.
         try:
-            if time_text == "HH:MM":  # Jeśli domyślny placeholder, zwracamy True
-                return True
-            time_obj = datetime.datetime.strptime(time_text, "%H:%M").time()
-            return 0 <= time_obj.hour < 24 and 0 <= time_obj.minute < 60
+            if time_text == "HH:MM":  
+                return True  # Domyślna wartość jest poprawna.
+            datetime.datetime.strptime(time_text, "%H:%M").time()  
+            # Próba przekształcenia tekstu na czas (jeśli niepoprawny, wywoła wyjątek).
+            return True
         except ValueError:
-            return False
+            return False  # Jeśli format jest błędny, zwróć False.
 
-    def add_task(self):
-        task_text = self.task_entry.get().strip()  # Pobiera i usuwa zbędne spacje z wpisanego zadania
-        time_text = self.time_entry.get().strip()  # Pobiera i usuwa zbędne spacje z wpisanej godziny
+    def add_task(self):  # Funkcja dodająca zadanie do listy.
+        task_text = self.task_entry.get().strip()  # Pobranie i usunięcie spacji z początku i końca wpisu.
+        time_text = self.time_entry.get().strip()
 
-        if not task_text or task_text == "Treść zadania":  # Sprawdza, czy pole zadania nie jest puste
-            messagebox.showwarning("Błąd", "Nie można dodać pustego zadania.")  # Wyświetla ostrzeżenie
-            return  # Kończy działanie funkcji
+        if not task_text:  # Jeśli nie wpisano tekstu zadania, zakończ funkcję.
+            return
 
-        if time_text and time_text != "HH:MM":  # Sprawdza, czy użytkownik wpisał godzinę
-            if not self.validate_time(time_text):
-                messagebox.showerror("Błąd", "Niepoprawny format godziny! Podaj godzinę w zakresie 00:00 - 23:59!")
-                self.task_entry.delete(0, tk.END)  # Czyści pole wpisywania zadania
-                self.time_entry.delete(0,tk.END) # Czyści pole godziny
-                self.restore_placeholder(None)  # Przywraca placeholder w polu godziny
-                self.restore_task_placeholder(None)
-                return
-            task_text = f"{time_text} - {task_text}"  # Dodaje godzinę do treści zadania
+        if time_text and time_text != "HH:MM" and not self.validate_time(time_text):  
+            return  # Jeśli czas jest podany, ale niepoprawny, zakończ funkcję.
 
-        self.task_manager.add_task(task_text)  # Dodaje zadanie do listy
+        if time_text and time_text != "HH:MM":  
+            task_text = f"{time_text} - {task_text}"  # Dodanie godziny do tekstu zadania.
 
-        self.task_entry.delete(0, tk.END)  # Czyści pole wpisywania zadania
-        self.time_entry.delete(0,tk.END) # Czyści pole godziny
-        self.restore_placeholder(None)  # Przywraca placeholder w polu godziny
-        self.restore_task_placeholder(None) # Przywraca placeholder w polu zadania
-    
-    def sort_tasks(self):
-        self.task_listbox.delete(0, tk.END)  # Czyszczenie listy
-        self.task_manager.tasks.sort(key=lambda task: task.time)  # Sortowanie po czasie
-        for task in self.task_manager.tasks:
-            self.task_listbox.insert(tk.END, task.title)  # Ponowne dodanie do listy
+        self.task_manager.add_task(task_text)  # Dodanie zadania do menedżera.
+        self.task_entry.delete(0, "end")  # Wyczyść pole wpisywania zadania.
+        self.time_entry.delete(0, "end")  # Wyczyść pole wpisywania czasu.
 
-    def generate_sorted_plan(self):
-        if any("[AUTO]" in task.text for task in self.task_manager.tasks):  # Sprawdza, czy istnieją automatycznie wygenerowane zadania
-            response = messagebox.askyesno("Potwierdzenie", "Czy chcesz nadpisać istn=iejący plan dnia?")  # Pyta użytkownika o potwierdzenie
-            if not response:  # Jeśli użytkownik nie chce nadpisać
-                return  # Kończy działanie funkcji
+    def generate_sorted_plan(self):  # Funkcja generowania posortowanego planu dnia.
+        if any("[AUTO]" in task.text for task in self.task_manager.tasks):  
+            # Sprawdzenie, czy istnieją wcześniej wygenerowane zadania.
+            CustomMessageBox(self, "Potwierdzenie", "Czy chcesz nadpisać istniejący plan dnia?", self.handle_confirmation)  
+            # Wyświetlenie okna potwierdzenia.
+        else:
+            self.execute_generation()  # Jeśli nie ma wcześniejszych zadań, wykonaj generowanie.
 
-        self.task_manager.remove_auto_tasks()  # Usuwa automatycznie wygenerowane zadania
-        self.task_generator.generate_day_plan()  # Generuje nowy plan dnia
-        self.task_manager.sort_tasks()  # Sortuje zadania według godziny
+    def handle_confirmation(self, response):  # Obsługa odpowiedzi użytkownika w oknie potwierdzenia.
+        if response:  
+            self.execute_generation()  # Jeśli użytkownik potwierdził, wygeneruj plan.
 
-class TaskManager:
-    def __init__(self, container):
-        self.container = container  # Kontener, w którym będą wyświetlane zadania
-        self.tasks = []  # Lista przechowująca wszystkie zadania
+    def execute_generation(self):  # Właściwe generowanie planu dnia.
+        self.task_manager.remove_auto_tasks()  # Usunięcie wcześniej wygenerowanych zadań.
+        self.task_generator.generate_day_plan()  # Wygenerowanie nowego planu.
+        self.task_manager.sort_tasks()  # Posortowanie zadań.
 
-    def add_task(self, text, done=False):
-        task = Task(self.container, text, done, self.remove_task, self.save_tasks)  # Tworzy nowy obiekt zadania
-        self.tasks.append(task)  # Dodaje zadanie do listy
-        self.save_tasks()  # Zapisuje zadania do pliku
-        self.sort_tasks() # Sortuje zadania po dodaniu nowego
-        self.refresh_tasks()  # Odświeża listę zadań
+    def export_to_pdf(self):  # Eksportowanie listy zadań do pliku PDF.
+        file_path = filedialog.asksaveasfilename(defaultextension=".pdf",
+                                             filetypes=[("Pliki PDF", "*.pdf")],
+                                             title="Zapisz harmonogram jako PDF")
+        if not file_path:
+            return  # Jeśli użytkownik anulował zapis, zakończ funkcję.
 
-    def remove_task(self, task):
-        if task in self.tasks:  # Sprawdza, czy zadanie istnieje w liście
-            self.tasks.remove(task)  # Usuwa zadanie z listy
-            task.frame.destroy()  # Usuwa graficzną reprezentację zadania
-            self.save_tasks()  # Zapisuje zmiany
+        c = canvas.Canvas(file_path, pagesize=A4)  # Tworzenie dokumentu PDF w formacie A4.
+        width, height = A4  # Pobranie szerokości i wysokości strony.
+        y_position = height - 50  # Ustawienie początkowej pozycji tekstu na stronie.
 
-    def save_tasks(self):
-        tasks_data = [{"text": task.text, "done": task.done} for task in self.tasks]  # Tworzy listę słowników z danymi zadań
-        with open(DATA_FILE, "w") as file:  # Otwiera plik w trybie zapisu
-            json.dump(tasks_data, file)  # Zapisuje dane w formacie JSON
+        c.setFont("Helvetica-Bold", 16)  # Ustawienie czcionki nagłówka.
+        c.drawString(50, y_position, "Harmonogram dnia")  # Dodanie tytułu w pliku PDF.
+        y_position -= 30  # Przesunięcie pozycji w dół.
 
-    def load_tasks(self):
-        if os.path.exists(DATA_FILE):  # Sprawdza, czy plik z danymi istnieje
-            with open(DATA_FILE, "r") as file:  # Otwiera plik w trybie odczytu
+        c.setFont("Helvetica", 12)  # Ustawienie czcionki dla zadań.
+        for task in self.task_manager.tasks:  # Iteracja po zadaniach.
+            c.drawString(50, y_position, f"- {task.text}")  # Dodanie zadania do pliku PDF.
+            y_position -= 20  # Przesunięcie pozycji w dół.
+            if y_position < 50:  # Jeśli brakuje miejsca na stronie, dodaj nową stronę.
+                c.showPage()
+                c.setFont("Helvetica", 12)
+                y_position = height - 50
+
+        c.save()  # Zapisanie pliku PDF.
+
+class TaskManager:  # Klasa zarządzająca listą zadań.
+    def __init__(self, parent):  # Konstruktor klasy.
+        self.parent = parent  # Przechowywanie referencji do nadrzędnego obiektu GUI.
+        self.tasks = []  # Lista przechowująca zadania.
+
+    def add_task(self, text, done=False):  # Funkcja dodająca nowe zadanie.
+        task = Task(self.parent.task_container, text, done, self.remove_task, self.save_tasks)  
+        # Tworzenie nowego obiektu Task i przekazanie mu kontenera, tekstu, stanu wykonania oraz funkcji obsługi.
+        self.tasks.append(task)  # Dodanie zadania do listy.
+        self.save_tasks()  # Zapisanie zadań do pliku.
+        self.sort_tasks()  # Posortowanie zadań.
+
+    def remove_task(self, task):  # Funkcja usuwająca zadanie.
+        if task in self.tasks:  # Sprawdzenie, czy zadanie istnieje w liście.
+            self.tasks.remove(task)  # Usunięcie zadania z listy.
+            task.frame.destroy()  # Usunięcie graficznego elementu zadania.
+            self.save_tasks()  # Ponowne zapisanie listy zadań.
+
+    def save_tasks(self):  # Funkcja zapisująca zadania do pliku JSON.
+        tasks_data = [{"text": task.text, "done": task.done} for task in self.tasks]  
+        # Tworzenie listy słowników z informacjami o zadaniach.
+        with open(DATA_FILE, "w") as file:  
+            # Otwarcie pliku JSON w trybie zapisu.
+            json.dump(tasks_data, file)  
+            # Zapisanie danych do pliku w formacie JSON.
+
+    def load_tasks(self):  # Funkcja ładująca zadania z pliku JSON.
+        if os.path.exists(DATA_FILE):  # Sprawdzenie, czy plik istnieje.
+            with open(DATA_FILE, "r") as file:  # Otwarcie pliku w trybie odczytu.
                 try:
-                    tasks_data = json.load(file)  # Wczytuje dane JSON
-                    for task_data in tasks_data:  # Iteruje po zadaniach z pliku
-                        self.add_task(task_data["text"], task_data.get("done", False))  # Dodaje zadania do listy
-                except json.JSONDecodeError:  # Obsługuje błąd w przypadku niepoprawnego pliku JSON
-                    messagebox.showerror("Błąd", "Nie można odczytać pliku z zadaniami.")  # Wyświetla komunikat o błędzie
+                    tasks_data = json.load(file)  # Wczytanie danych JSON.
+                    for task_data in tasks_data:  # Iteracja po wczytanych zadaniach.
+                        self.add_task(task_data["text"], task_data.get("done", False))  
+                        # Dodanie zadania do listy.
+                except json.JSONDecodeError:  # Obsługa błędu, jeśli plik nie jest poprawnym JSON-em.
+                    pass  # Po prostu pomijamy błąd i nie wczytujemy danych.
 
-    def remove_auto_tasks(self):
-        auto_tasks = [task for task in self.tasks if "[AUTO]" in task.text]  # Wyszukuje zadania oznaczone jako automatyczne
-        if auto_tasks:  # Sprawdza, czy istnieją automatyczne zadania
-            confirm = messagebox.askyesno("Potwierdzenie", "Czy chcesz nadpisać istniejący plan dnia?")  # Pyta użytkownika o potwierdzenie
-            if not confirm:  # Jeśli użytkownik odmówi
-                return  # Przerywa działanie funkcji
+    def remove_auto_tasks(self):  # Funkcja usuwająca automatycznie wygenerowane zadania.
+        tasks_to_remove = [task for task in self.tasks if "[AUTO]" in task.text]  
+        # Tworzenie listy zadań, które zawierają znacznik [AUTO].
+        for task in tasks_to_remove:  # Iteracja po zadaniach do usunięcia.
+            task.frame.destroy()  # Usunięcie elementu graficznego zadania.
+            self.tasks.remove(task)  # Usunięcie zadania z listy.
+        self.refresh_tasks()  # Odświeżenie wyświetlanej listy zadań.
+        self.sort_tasks()  # Ponowne posortowanie zadań.
 
-        for task in auto_tasks:  # Iteruje po automatycznych zadaniach
-            task.frame.destroy()  # Usuwa graficzną reprezentację zadania
-            self.tasks.remove(task)  # Usuwa zadanie z listy
-        self.save_tasks()  # Zapisuje zmiany
+    def sort_tasks(self):  # Funkcja sortująca zadania według godziny.
+        def extract_time(task):  # Funkcja pomocnicza wyciągająca godzinę z tekstu zadania.
+            parts = task.text.split(" - ", 1)  # Rozdzielenie tekstu zadania po znaku " - ".
+            if len(parts) > 1 and ":" in parts[0]:  # Sprawdzenie, czy pierwsza część zawiera godzinę.
+                try:
+                    return datetime.datetime.strptime(parts[0], "%H:%M").time()  
+                    # Konwersja na obiekt czasu.
+                except ValueError:
+                    return datetime.time(23, 59)  
+                    # Jeśli nie udało się sparsować godziny, przypisz 23:59.
+            return datetime.time(23, 59)  # Jeśli brak godziny, przypisz 23:59.
 
-    def sort_tasks(self):
-        try:
-            def extract_time(task):
-                parts = task.text.split(" - ", 1)  # Rozdziela tekst po pierwszym myślniku
-                if len(parts) > 1 and ":" in parts[0]:  # Sprawdza, czy pierwsza część wygląda na godzinę
-                    try:
-                        return datetime.datetime.strptime(parts[0], "%H:%M").time()  # Konwertuje na obiekt time
-                    except ValueError:  # Obsługuje błąd konwersji
-                        return datetime.time(23, 59)  # Zadania z błędnym formatem godziny trafiają na koniec listy
-                return datetime.time(23, 59)  # Zadania bez godziny również idą na koniec
+        self.tasks.sort(key=lambda task: extract_time(task))  # Sortowanie listy zadań według czasu.
+        self.refresh_tasks()  # Odświeżenie listy po sortowaniu.
 
-            self.tasks.sort(key=lambda task: extract_time(task))  # Sortuje zadania według wyciągniętej godziny
-            self.refresh_tasks()  # Odświeża listę zadań po sortowaniu
+    def refresh_tasks(self):  # Funkcja odświeżająca wyświetlaną listę zadań.
+        for task in self.tasks:  
+            task.frame.pack_forget()  # Ukrycie wszystkich elementów zadań.
+        for task in self.tasks:  
+            task.frame.pack(fill="x", padx=5, pady=5)  
+            # Ponowne wyświetlenie zadań w odpowiedniej kolejności.
 
-        except Exception as e:  # Obsługuje błędy podczas sortowania
-            messagebox.showerror("Błąd", f"Nie udało się posortować zadań:\n{str(e)}")  # Wyświetla komunikat o błędzie
+class Task:  # Klasa reprezentująca pojedyncze zadanie.
+    def __init__(self, parent, text, done, remove_callback, update_callback):  # Konstruktor klasy.
+        self.parent = parent  # Przechowywanie referencji do nadrzędnego kontenera.
+        self.text = text  # Tekst zadania.
+        self.done = done  # Status wykonania (True - wykonane, False - niewykonane).
+        self.remove_callback = remove_callback  # Funkcja do usunięcia zadania.
+        self.update_callback = update_callback  # Funkcja do aktualizacji listy zadań.
 
-    def refresh_tasks(self):
-        for task in self.tasks:  # Iteruje po wszystkich zadaniach
-            task.frame.pack_forget()  # Ukrywa wszystkie zadania
-        for task in self.tasks:  # Ponownie iteruje po zadaniach
-            task.frame.pack(fill="x", padx=5, pady=5)  # Wyświetla posortowane zadania
+        self.frame = ctk.CTkFrame(self.parent)  
+        # Tworzenie ramki dla zadania wewnątrz kontenera.
+        self.frame.pack(fill="x", padx=5, pady=5)  
+        # Wyświetlenie ramki, rozszerzając ją na całą szerokość kontenera.
 
-class Task:
-    def __init__(self, parent, text, done, remove_callback, update_callback):
-        self.parent = parent  # Kontener, w którym zadanie będzie umieszczone
-        self.text = text  # Treść zadania
-        self.done = done  # Status wykonania zadania (True/False)
-        self.remove_callback = remove_callback  # Funkcja do usuwania zadania
-        self.update_callback = update_callback  # Funkcja do aktualizacji statusu zadania
+        self.check_var = ctk.BooleanVar(value=self.done)  
+        # Tworzenie zmiennej przechowującej stan zaznaczenia checkboxa.
+        self.checkbox = ctk.CTkCheckBox(
+            self.frame, text="", variable=self.check_var, command=self.toggle_done,  
+            checkmark_color="white", fg_color="green", border_color="green"
+        )  
+        # Tworzenie przycisku wyboru (checkboxa) do oznaczania wykonania zadania.
+        self.checkbox.pack(side="left", padx=5)  
+        # Umieszczenie checkboxa po lewej stronie.
 
-        # Główna ramka zadania z użyciem ttk
-        self.frame = ttk.Frame(self.parent)  # Tworzy ramkę dla zadania
-        self.frame.pack(fill="x", padx=5, pady=5)  # Umieszcza ramkę w kontenerze
-        self.frame.columnconfigure(1, weight=1)  # Pozwala etykiecie zajmować dostępne miejsce
+        self.label = ctk.CTkLabel(self.frame, text=self.text)  
+        # Tworzenie etykiety z tekstem zadania.
+        self.label.pack(side="left", expand=True, padx=5)  
+        # Umieszczenie etykiety po lewej stronie, pozwalając jej rozszerzać się.
 
-        self.check_var = tk.BooleanVar(value=self.done)  # Przechowuje status zaznaczenia checkboxa
-        self.checkbox = ttk.Checkbutton(self.frame, variable=self.check_var, command=self.toggle_done)  # Tworzy checkbox do oznaczania wykonania zadania
-        self.checkbox.grid(row=0, column=0, padx=(0, 8), sticky="w")  # Ustawia checkbox w ramce
+        self.delete_button = ctk.CTkButton(self.frame, text="Usuń", fg_color="red", command=self.remove, width=5)  
+        # Tworzenie przycisku "Usuń" do usuwania zadania.
+        self.delete_button.pack(side="right", padx=5)  
+        # Umieszczenie przycisku po prawej stronie.
 
-        self.label = ttk.Label(self.frame, text=self.text, anchor="w")  # Tworzy etykietę z treścią zadania
-        self.label.grid(row=0, column=1, sticky="w")  # Ustawia etykietę obok checkboxa
+        self.update_style()  # Wywołanie funkcji do ustawienia stylu etykiety.
 
-        self.delete_button = ttk.Button(self.frame, text="Usuń", command=self.remove, style="DeleteButton.TButton")  # Tworzy przycisk do usuwania zadania
-        self.delete_button.grid(row=0, column=2, padx=5, sticky="e")  # Umieszcza przycisk po prawej stronie
+    def toggle_done(self):  # Funkcja obsługująca zmianę stanu wykonania zadania.
+        self.done = self.check_var.get()  # Aktualizacja statusu wykonania.
+        self.update_style()  # Aktualizacja stylu zadania (koloru tekstu).
+        self.update_callback()  # Wywołanie funkcji zapisującej stan zadań.
 
-        self.update_style()  # Aktualizuje styl na podstawie statusu zadania
+    def update_style(self):  # Funkcja aktualizująca wygląd zadania.
+        self.label.configure(text_color="green" if self.done else "white")  
+        # Jeśli zadanie wykonane, kolor tekstu jest zielony, w przeciwnym razie biały.
 
-    def toggle_done(self):
-        self.done = self.check_var.get()  # Pobiera nowy status z checkboxa
-        self.update_style()  # Aktualizuje wygląd etykiety
-        self.update_callback()  # Wywołuje funkcję aktualizacji
+    def remove(self):  # Funkcja usuwająca zadanie.
+        self.frame.destroy()  # Usunięcie elementu graficznego zadania.
+        self.remove_callback(self)  # Wywołanie funkcji usuwającej zadanie z listy.
 
-    def update_style(self):
-        if self.done:
-            self.label.configure(foreground="green")  # Jeśli wykonane, zmienia kolor na szary
-        else:
-            self.label.configure(foreground="black")  # Jeśli niewykonane, kolor czarny
+class TaskGenerator:  # Klasa odpowiedzialna za generowanie planu dnia na podstawie wariantów.
+    def __init__(self, task_manager, day_type_var, day_variations):  # Konstruktor klasy.
+        self.task_manager = task_manager  # Referencja do menedżera zadań.
+        self.day_type_var = day_type_var  # Zmienna przechowująca wybrany typ dnia.
+        self.day_variations = day_variations  # Słownik przechowujący warianty zadań dla różnych typów dnia.
 
-    def remove(self):
-        self.frame.destroy()  # Usuwa ramkę zadania
-        self.remove_callback(self)  # Informuje TaskManager o usunięciu zadania
+    def generate_day_plan(self):  # Funkcja generująca plan dnia.
+        day_type = self.day_type_var.get()  # Pobranie aktualnie wybranego typu dnia.
+        if day_type in self.day_variations:  # Sprawdzenie, czy istnieją warianty dla wybranego dnia.
+            tasks = random.choice(self.day_variations[day_type])  
+            # Losowy wybór jednej listy zadań z dostępnych wariantów dla danego dnia.
+            for time, task in tasks:  # Iteracja przez listę wybranych zadań.
+                self.task_manager.add_task(f"{time} - {task} [AUTO]")  
+                # Dodanie zadania do menedżera zadań, oznaczonego jako automatycznie wygenerowane.
+            self.task_manager.sort_tasks()  # Posortowanie listy zadań po czasie.
 
-class TaskGenerator:
-    def __init__(self, task_manager, day_type_var, day_variations):
-        self.task_manager = task_manager  # Referencja do menedżera zadań
-        self.day_type_var = day_type_var  # Zmienna przechowująca wybrany typ dnia
-        self.day_variations = day_variations  # Słownik przechowujący różne harmonogramy dnia
-
-    def generate_day_plan(self):
-        day_type = self.day_type_var.get()  # Pobiera aktualnie wybrany typ dnia
-        if day_type in self.day_variations:  # Sprawdza, czy istnieje harmonogram dla danego typu dnia
-            tasks = random.choice(self.day_variations[day_type])  # Losuje jeden wariant harmonogramu
-            for time, task in tasks:  # Iteruje przez zadania w harmonogramie
-                self.task_manager.add_task(f"{time} - {task} [AUTO]")  # Dodaje każde zadanie z oznaczeniem [AUTO]
-            self.task_manager.sort_tasks()  # Sortuje zadania po czasie
-        else:
-            messagebox.showerror("Błąd", "Brak harmonogramu dla wybranego typu dnia.")  # Komunikat o błędzie, jeśli brak harmonogramu
-
-if __name__ == "__main__":  # Sprawdza, czy skrypt jest uruchamiany bezpośrednio (a nie importowany jako moduł)
-    root = tk.Tk()  # Tworzy główne okno aplikacji Tkinter
-    app = ToDoApp(root)  # Inicjalizuje aplikację To-Do List, przekazując główne okno jako parametr
-    root.mainloop()  # Uruchamia główną pętlę zdarzeń Tkinter, umożliwiając interakcję z GUI
-    
+if __name__ == "__main__":  # Sprawdzenie, czy skrypt jest uruchamiany bezpośrednio.
+    app = ToDoApp()  # Utworzenie instancji aplikacji.
+    app.mainloop()  # Uruchomienie głównej pętli aplikacji.
