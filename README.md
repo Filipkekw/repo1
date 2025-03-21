@@ -1,23 +1,29 @@
 # Aplikacja Lista Zadań z generatorem planu dnia (To-Do List)
 
-Jest to prosta aplikacja lista zadań stworzona przy użyciu biblioteki `tkinter` w Pythonie. Aplikacja pozwala użytkownikowi dodawać zadania do listy i wyświetlać je w interfejsie graficznym. Posiada również funkcję generowania planu dnia roboczego, wolnego od pracy lub na pracy zdalej w zależności od wyboru użytkownika.
+Jest to prosta aplikacja lista zadań stworzona przy użyciu biblioteki `customtkinter` w Pythonie. Aplikacja pozwala użytkownikowi dodawać zadania do listy, wyświetlać je w interfejsie graficznym i eksportować listę zadań do pliku w formacie PDF. Posiada również funkcję generowania planu dnia roboczego, wolnego od pracy lub na pracy zdalej w zależności od wyboru użytkownika. 
 
 ## Funkcje:
 - Dodawanie zadań do listy.
 - Wyświetlanie dodanych zadań w polu listy.
 - Pole do wpisywania zadań.
-- Przycisk do dodawania i usuwania zadań.
+- Przycisk do dodawania i usuwania zadań, eksportu do pliku PDF i generowania planu dnia.
 - Oznaczenie zadania jako wykonane.
-- Zapis danych do pliku json, automatycznie wczytywanych przy uruchomieniu aplikacji.
+- Zapis danych do pliku JSON, automatycznie wczytywanych przy uruchomieniu aplikacji.
 - Możliwość wygenerowania planu dnia roboczego, wolnego od pracy lub pracy zdalnej.
+- Możliwość eksportu wszystkich aktualnych zadań z listy do pliku w formacie PDF.
 
 ## Wymagania:
 - Python 3.11
-- Biblioteka tkinter (zwykle jest zainstalowana domyślnie z Pythonem)
+- Biblioteka customtkinter w wersji conajmniej 5.2.2
 
+# Instrukcje
 ## Jak uruchomić:
 1. Upewnij się, że masz zainstalowanego Pythona 3.11 na swoim systemie.
 2. Skopiuj kod do pliku `.py` (np. `todo_list.py`).
 3. Uruchom plik używając interpretera Pythona:
    ```bash
    python todo_list.py
+## Jak wyeksportować plik do formatu PDF?
+1. Zapisz zadania na liście lub wygeneruj plan dnia.
+2. Kliknij przycisk "Eksportuj do PDF".
+3. Nazwij plik i kliknij zapisz.
