@@ -7,6 +7,7 @@ import reportlab  # Import biblioteki ReportLab do generowania plików PDF.
 from reportlab.lib.pagesizes import A4  # Import stałej A4 określającej rozmiar strony PDF.
 from reportlab.pdfgen import canvas  # Import narzędzia canvas do rysowania zawartości na stronach PDF.
 from tkinter import filedialog  # Import modułu filedialog z Tkinter do wyświetlania okien zapisu/otwarcia plików.
+from tkinter import messagebox
 from reportlab.pdfbase import pdfmetrics  # Import modułu pdfmetrics z ReportLab do rejestracji czcionek.
 from reportlab.pdfbase.ttfonts import TTFont  # Import klasy TTFont do obsługi czcionek TrueType.
 
@@ -172,12 +173,17 @@ class ToDoApp(ctk.CTk):  # Główna klasa aplikacji, dziedziczy po CTk (okno gł
         self.task_manager.remove_auto_tasks()  # Usuwa wcześniej wygenerowane zadania (te z markerem [AUTO]).
         self.task_generator.generate_day_plan()  # Wywołuje metodę generatora, która generuje nowy plan dnia.
         self.task_manager.sort_tasks()  # Sortuje zadania (np. według czasu).
-
+    
     def export_to_pdf(self):
-        # Tworzymy domyślną nazwę pliku na podstawie aktualnej daty.
+        # Sprawdzenie, czy istnieją zadania z dopiskiem [AUTO]
+        if not any("[AUTO]" in task.text for task in self.task_manager.tasks):
+            messagebox.showwarning("Brak harmonogramu", "Nie można wygenerować PDF – najpierw wygeneruj harmonogram!")
+            return
+
+        # Tworzymy domyślną nazwę pliku na podstawie aktualnej daty
         default_filename = f"harmonogram_{datetime.datetime.now().strftime('%Y_%m_%d')}.pdf"
         file_path = filedialog.asksaveasfilename(
-            initialfile=default_filename,  # Domyślna nazwa pliku.
+            initialfile=default_filename,
             defaultextension=".pdf",
             filetypes=[("Pliki PDF", "*.pdf")],
             title="Zapisz harmonogram jako PDF"
@@ -192,6 +198,7 @@ class ToDoApp(ctk.CTk):  # Główna klasa aplikacji, dziedziczy po CTk (okno gł
         generation_date = datetime.datetime.now().strftime("%Y-%m-%d")
         selected_plan = self.day_type_var.get()
 
+        # Nagłówek PDF
         c.setFont("Aller_Lt", 16)
         c.drawString(50, y_position, "Harmonogram dnia")
         y_position -= 30
@@ -203,16 +210,18 @@ class ToDoApp(ctk.CTk):  # Główna klasa aplikacji, dziedziczy po CTk (okno gł
         c.drawString(50, y_position, f"Plan dnia: {selected_plan}")
         y_position -= 30
 
+        # Wypisywanie zadań
         c.setFont("Aller_Lt", 12)
         for task in self.task_manager.tasks:
             c.drawString(50, y_position, f"- {task.text}")
             y_position -= 20
-            if y_position < 50:
+            if y_position < 50:  # Nowa strona, jeśli zabraknie miejsca
                 c.showPage()
                 c.setFont("Aller_Lt", 12)
                 y_position = height - 50
 
         c.save()
+        messagebox.showinfo("Sukces", f"PDF został pomyślnie zapisany jako:\n{file_path}")
 
 class TaskManager:  # Klasa zarządzająca zadaniami w aplikacji.
     def __init__(self, parent):
