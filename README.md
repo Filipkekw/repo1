@@ -16,7 +16,9 @@ Jest to prosta aplikacja lista zadań stworzona przy użyciu biblioteki `customt
 
 ## Wymagania:
 - Python 3.11
+- Biblioteka tkinter
 - Biblioteka customtkinter w wersji conajmniej 5.2.2
+- Podfolder "fonts" z plikiem Aller_Lt.ttf
 
 # Instrukcje
 ## Jak uruchomić:
@@ -25,7 +27,7 @@ Jest to prosta aplikacja lista zadań stworzona przy użyciu biblioteki `customt
 3. Uruchom plik używając interpretera Pythona:
    ```bash
    python todo_list.py
-## Jak wyeksportować plik do formatu PDF?
+## Jak wyeksportować plik do formatu PDF? (Wymagany podfolder "fonts" z plikiem Aller_Lt.ttf !!!)
 1. Zapisz zadania na liście lub wygeneruj plan dnia.
 2. Kliknij przycisk "Eksportuj do PDF".
 3. Nazwij plik i kliknij zapisz.
