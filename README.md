@@ -30,4 +30,5 @@ Jest to prosta aplikacja lista zadań stworzona przy użyciu biblioteki `customt
 ## Jak wyeksportować plik do formatu PDF?
 1. Zapisz zadania na liście lub wygeneruj plan dnia.
 2. Kliknij przycisk "Eksportuj do PDF".
-3. Nazwij plik i kliknij zapisz.
+3. Zapisz plik pod automatyczną lub zmienioną nazwą.
+   
