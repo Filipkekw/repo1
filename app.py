@@ -7,7 +7,6 @@ import reportlab  # Import biblioteki ReportLab do generowania plików PDF.
 from reportlab.lib.pagesizes import A4  # Import stałej A4 określającej rozmiar strony PDF.
 from reportlab.pdfgen import canvas  # Import narzędzia canvas do rysowania zawartości na stronach PDF.
 from tkinter import filedialog  # Import modułu filedialog z Tkinter do wyświetlania okien zapisu/otwarcia plików.
-from tkinter import messagebox
 from reportlab.pdfbase import pdfmetrics  # Import modułu pdfmetrics z ReportLab do rejestracji czcionek.
 from reportlab.pdfbase.ttfonts import TTFont  # Import klasy TTFont do obsługi czcionek TrueType.
 
@@ -16,28 +15,35 @@ pdfmetrics.registerFont(TTFont('Aller_Lt', font_path))  # Rejestracja czcionki "
 
 DATA_FILE = "tasks.json"  # Stała określająca nazwę pliku JSON, w którym przechowywane są zadania oraz wybrany plan dnia.
 DAY_VARIATIONS_FILE = "day_variations.json"  # Stała określająca nazwę pliku JSON z wariantami planów dnia.
+SETTINGS_FILE = "settings.json"
 
-class CustomMessageBox(ctk.CTkToplevel):  # Definicja klasy CustomMessageBox dziedziczącej po CTkToplevel – tworzy niestandardowe okno dialogowe.
-    def __init__(self, parent, title, message, callback):  # Konstruktor klasy, przyjmuje rodzica, tytuł, wiadomość i funkcję callback.
-        super().__init__(parent)  # Inicjalizacja klasy nadrzędnej (CTkToplevel) z rodzicem.
-        self.title(title)  # Ustawia tytuł okna dialogowego.
-        self.geometry("300x150")  # Ustawia rozmiar okna dialogowego na 300x150 pikseli.
-        self.callback = callback  # Przechowuje funkcję callback, która zostanie wywołana po wyborze użytkownika.
-        self.grab_set()  # Ustawia okno jako modalne, blokując interakcję z głównym oknem.
+class CustomMessageBox(ctk.CTkToplevel):
+    def __init__(self, master, title, message, on_confirm):
+        super().__init__(master)
+        self.title(title)
+        self.geometry("300x175")  # Możesz dostosować rozmiar okna
+        self.on_confirm = on_confirm
 
-        ctk.CTkLabel(self, text=message, font=("Arial", 14)).pack(pady=10)  # Tworzy etykietę z przekazaną wiadomością i ustawia margines pionowy 10 pikseli.
+        self.label = ctk.CTkLabel(self, text=message)
+        self.label.pack(pady=20)
 
-        button_frame = ctk.CTkFrame(self)  # Tworzy ramkę, która będzie zawierała przyciski.
-        button_frame.pack(pady=10)  # Umieszcza ramkę z marginesem pionowym 10 pikseli.
+        self.confirm_button = ctk.CTkButton(self, text="Tak", command=self.confirm, fg_color="green")
+        self.confirm_button.pack(pady=10)
 
-        ctk.CTkButton(button_frame, text="Tak", fg_color="green", command=lambda: self.answer(True)).pack(side="left", padx=10)  
-        # Tworzy przycisk "Tak" z zielonym tłem, który po kliknięciu wywoła metodę answer z argumentem True; przycisk jest umieszczony po lewej stronie z marginesem poziomym 10 pikseli.
-        ctk.CTkButton(button_frame, text="Nie", fg_color="red", command=lambda: self.answer(False)).pack(side="right", padx=10)  
-        # Tworzy przycisk "Nie" z czerwonym tłem, który wywoła metodę answer z argumentem False; przycisk jest umieszczony po prawej stronie z marginesem poziomym 10 pikseli.
+        self.cancel_button = ctk.CTkButton(self, text="Nie", command=self.cancel, fg_color="red")
+        self.cancel_button.pack(pady=5)
 
-    def answer(self, response):  # Metoda obsługująca wybór użytkownika.
-        self.callback(response)  # Wywołuje przekazaną funkcję callback z odpowiedzią (True/False).
-        self.destroy()  # Zamyka okno dialogowe.
+        self.update_idletasks()  # Upewnia się, że UI zostanie odświeżone
+        self.wait_visibility()   # Czeka, aż okno stanie się widoczne
+        self.grab_set()          # Ustawia okno jako modalne
+
+    def confirm(self):
+        self.on_confirm(True)
+        self.destroy()
+
+    def cancel(self):
+        self.on_confirm(False)
+        self.destroy()
 
 def save_default_day_variations():
     default_variations = {  # Definicja słownika zawierającego domyślne warianty planów dnia.
@@ -82,19 +88,42 @@ class ToDoApp(ctk.CTk):  # Główna klasa aplikacji, dziedziczy po CTk (okno gł
         self.title("To-Do List")  # Ustawia tytuł głównego okna.
         self.geometry("600x900")  # Ustawia rozmiar okna.
 
-        self.task_manager = TaskManager(self)  # Tworzy instancję menedżera zadań.
+        top_bar = ctk.CTkFrame(self, fg_color="transparent")
+        top_bar.pack(side="top", fill="x")
+
+        self.theme_var = ctk.StringVar(value="System")
+
+        self.system_theme = ctk.get_appearance_mode()
+        
+        self.task_manager = TaskManager(self)
+
+        self.theme_menu = ctk.CTkComboBox(
+            master=top_bar,
+            values=["System", "Jasny", "Ciemny"],
+            variable=self.theme_var,
+            command=self.change_theme,
+            width=120,
+            state="readonly"
+        )
+        self.theme_menu.pack(side="right", padx=10, pady=10)
+
+        self.load_settings()
+        self.change_theme(self.theme_var.get())
+
+        self.update_task_text_color()
+
         self.day_type_var = ctk.StringVar(value="Plan dnia")  # Inicjalizuje zmienną przechowującą wybrany plan dnia (domyślnie "Plan dnia").
         self.task_generator = TaskGenerator(self.task_manager, self.day_type_var, day_variations)  # Tworzy instancję generatora planu dnia.
 
         ctk.CTkLabel(self, text="Twoja Lista Zadań", font=("Arial", 16, "bold")).pack(pady=10)  # Dodaje etykietę tytułową na górze okna.
 
-        top_frame = ctk.CTkFrame(self)  # Tworzy ramkę umieszczoną u góry, która podzieli przestrzeń na dwie kolumny.
+        top_frame = ctk.CTkFrame(self, fg_color="transparent") # Tworzy ramkę umieszczoną u góry, która podzieli przestrzeń na dwie kolumny.
         top_frame.pack(pady=5, fill="x")  # Umieszcza ramkę z marginesem pionowym 5 pikseli i wypełnia całą szerokość.
 
-        left_frame = ctk.CTkFrame(top_frame)  # Tworzy lewą kolumnę wewnątrz ramki top_frame – przeznaczoną do dodawania zadań.
+        left_frame = ctk.CTkFrame(top_frame, fg_color="transparent")  # Tworzy lewą kolumnę wewnątrz ramki top_frame – przeznaczoną do dodawania zadań.
         left_frame.pack(side="left", fill="both", expand=True, padx=5)  # Umieszcza lewą kolumnę po lewej stronie z marginesem poziomym 5 pikseli.
 
-        right_frame = ctk.CTkFrame(top_frame)  # Tworzy prawą kolumnę wewnątrz top_frame – przeznaczoną do wyboru planu dnia i generowania planu.
+        right_frame = ctk.CTkFrame(top_frame, fg_color="transparent")  # Tworzy prawą kolumnę wewnątrz top_frame – przeznaczoną do wyboru planu dnia i generowania planu.
         right_frame.pack(side="right", fill="both", expand=True, padx=5)  # Umieszcza prawą kolumnę po prawej stronie z marginesem poziomym 5 pikseli.
 
         self.task_entry = ctk.CTkEntry(left_frame, width=250, placeholder_text="Treść zadania")  # Tworzy pole tekstowe do wpisywania treści zadania.
@@ -120,10 +149,12 @@ class ToDoApp(ctk.CTk):  # Główna klasa aplikacji, dziedziczy po CTk (okno gł
         # Tworzy przycisk do eksportowania planu do pliku PDF, wywołujący metodę export_to_pdf.
         self.export_button.pack(pady=5)  # Umieszcza przycisk z marginesem pionowym 5 pikseli.
 
-        self.task_container = ctk.CTkFrame(self)  # Tworzy główną ramkę, w której będą wyświetlane zadania.
+        self.task_container = ctk.CTkFrame(self, fg_color="transparent")  # Tworzy główną ramkę, w której będą wyświetlane zadania.
         self.task_container.pack(pady=10, fill="both", expand=True)  # Umieszcza ramkę z marginesem pionowym 10 pikseli, rozciągając ją na całą przestrzeń.
 
         self.task_manager.load_tasks()  # Wywołuje metodę load_tasks menedżera zadań, która wczytuje zadania oraz zapisany plan dnia z pliku.
+
+        self.update_task_text_color()
 
     def format_time_entry(self, event):  # Metoda formatująca wpisaną wartość w polu czasu.
         text = self.time_entry.get()  # Pobiera aktualny tekst z pola czasu.
@@ -156,6 +187,7 @@ class ToDoApp(ctk.CTk):  # Główna klasa aplikacji, dziedziczy po CTk (okno gł
         self.task_manager.add_task(task_text)  # Dodaje zadanie do listy poprzez TaskManager.
         self.task_entry.delete(0, "end")  # Czyści pole wpisywania treści zadania.
         self.time_entry.delete(0, "end")  # Czyści pole wpisywania czasu.
+        self.update_task_text_color()
 
     def generate_sorted_plan(self):  # Metoda generująca plan dnia z wariantów.
         if any("[AUTO]" in task.text for task in self.task_manager.tasks):  
@@ -173,17 +205,12 @@ class ToDoApp(ctk.CTk):  # Główna klasa aplikacji, dziedziczy po CTk (okno gł
         self.task_manager.remove_auto_tasks()  # Usuwa wcześniej wygenerowane zadania (te z markerem [AUTO]).
         self.task_generator.generate_day_plan()  # Wywołuje metodę generatora, która generuje nowy plan dnia.
         self.task_manager.sort_tasks()  # Sortuje zadania (np. według czasu).
-    
-    def export_to_pdf(self):
-        # Sprawdzenie, czy istnieją zadania z dopiskiem [AUTO]
-        if not any("[AUTO]" in task.text for task in self.task_manager.tasks):
-            messagebox.showwarning("Brak harmonogramu", "Nie można wygenerować PDF – najpierw wygeneruj harmonogram!")
-            return
 
-        # Tworzymy domyślną nazwę pliku na podstawie aktualnej daty
+    def export_to_pdf(self):
+        # Tworzymy domyślną nazwę pliku na podstawie aktualnej daty.
         default_filename = f"harmonogram_{datetime.datetime.now().strftime('%Y_%m_%d')}.pdf"
         file_path = filedialog.asksaveasfilename(
-            initialfile=default_filename,
+            initialfile=default_filename,  # Domyślna nazwa pliku.
             defaultextension=".pdf",
             filetypes=[("Pliki PDF", "*.pdf")],
             title="Zapisz harmonogram jako PDF"
@@ -198,7 +225,6 @@ class ToDoApp(ctk.CTk):  # Główna klasa aplikacji, dziedziczy po CTk (okno gł
         generation_date = datetime.datetime.now().strftime("%Y-%m-%d")
         selected_plan = self.day_type_var.get()
 
-        # Nagłówek PDF
         c.setFont("Aller_Lt", 16)
         c.drawString(50, y_position, "Harmonogram dnia")
         y_position -= 30
@@ -210,18 +236,57 @@ class ToDoApp(ctk.CTk):  # Główna klasa aplikacji, dziedziczy po CTk (okno gł
         c.drawString(50, y_position, f"Plan dnia: {selected_plan}")
         y_position -= 30
 
-        # Wypisywanie zadań
         c.setFont("Aller_Lt", 12)
         for task in self.task_manager.tasks:
             c.drawString(50, y_position, f"- {task.text}")
             y_position -= 20
-            if y_position < 50:  # Nowa strona, jeśli zabraknie miejsca
+            if y_position < 50:
                 c.showPage()
                 c.setFont("Aller_Lt", 12)
                 y_position = height - 50
 
         c.save()
-        messagebox.showinfo("Sukces", f"PDF został pomyślnie zapisany jako:\n{file_path}")
+
+    def change_theme(self, new_theme: str):
+        if new_theme == "System":
+            actual_theme = self.system_theme  # Używamy zapisanego motywu systemowego
+        else:
+            mapping = {"Jasny": "Light", "Ciemny": "Dark"}
+            actual_theme = mapping.get(new_theme, "Light")
+
+        ctk.set_appearance_mode(actual_theme)
+
+        if hasattr(self, "task_manager") and self.task_manager:
+            self.update_task_text_color()
+
+        self.save_settings()
+
+    def update_task_text_color(self):
+        if not hasattr(self, "task_manager") or not self.task_manager:
+            return
+        
+        current_theme = ctk.get_appearance_mode()
+        text_color = "black" if current_theme == "Light" else "White"
+
+        for task in self.task_manager.tasks:
+            if hasattr(task, "label"):
+                task.label.configure(text_color=text_color)
+    
+    def save_settings(self):
+        settings = {"theme": self.theme_var.get()}
+        with open(SETTINGS_FILE, "w") as file:
+            json.dump(settings, file, indent=4)
+
+    def load_settings(self):
+        if os.path.exists(SETTINGS_FILE):
+            with open(SETTINGS_FILE, "r") as file:
+                try:
+                    settings = json.load(file)
+                    if "theme" in settings:
+                        self.theme_var.set(settings["theme"])
+                        self.system_theme = ctk.get_appearance_mode()
+                except json.JSONDecodeError:
+                    pass
 
 class TaskManager:  # Klasa zarządzająca zadaniami w aplikacji.
     def __init__(self, parent):
@@ -301,8 +366,8 @@ class Task:  # Klasa reprezentująca pojedyncze zadanie.
         self.remove_callback = remove_callback  # Przechowuje funkcję, która usunie zadanie.
         self.update_callback = update_callback  # Przechowuje funkcję, która zaktualizuje zapisane zadania.
 
-        self.frame = ctk.CTkFrame(self.parent)  # Tworzy ramkę, która będzie zawierać graficzne elementy zadania.
-        self.frame.pack(fill="x", padx=5, pady=5)  # Umieszcza ramkę, rozciągając ją na całą szerokość z marginesami.
+        self.frame = ctk.CTkFrame(self.parent, fg_color="transparent")  # Tworzy ramkę, która będzie zawierać graficzne elementy zadania.
+        self.frame.pack(fill="x", padx=5, pady=3)  # Umieszcza ramkę, rozciągając ją na całą szerokość z marginesami.
 
         self.check_var = ctk.BooleanVar(value=self.done)  # Tworzy zmienną boolowską przechowującą stan wykonania zadania.
         self.checkbox = ctk.CTkCheckBox(
@@ -314,7 +379,7 @@ class Task:  # Klasa reprezentująca pojedyncze zadanie.
         self.label = ctk.CTkLabel(self.frame, text=self.text)  # Tworzy etykietę wyświetlającą tekst zadania.
         self.label.pack(side="left", expand=True, padx=5)  # Umieszcza etykietę po lewej stronie, umożliwiając jej rozszerzenie.
 
-        self.delete_button = ctk.CTkButton(self.frame, text="Usuń", fg_color="red", command=self.remove, width=5)  
+        self.delete_button = ctk.CTkButton(self.frame, text="Usuń", fg_color="red", command=self.remove, width=5, hover_color="darkred")  
         # Tworzy przycisk "Usuń", który wywołuje metodę remove, usuwając zadanie.
         self.delete_button.pack(side="right", padx=5)  # Umieszcza przycisk po prawej stronie z marginesem.
         self.update_style()  # Wywołuje metodę update_style, która ustawia styl etykiety w zależności od stanu zadania.
@@ -324,8 +389,14 @@ class Task:  # Klasa reprezentująca pojedyncze zadanie.
         self.update_style()  # Aktualizuje styl (np. kolor tekstu) zadania.
         self.update_callback()  # Wywołuje funkcję aktualizującą zapisane zadania.
 
-    def update_style(self):  # Metoda aktualizująca wygląd etykiety zadania.
-        self.label.configure(text_color="green" if self.done else "white")  # Ustawia kolor tekstu: zielony, jeśli zadanie wykonane, lub biały, jeśli nie.
+    def update_style(self):
+        current_theme = ctk.get_appearance_mode()
+        if self.done:
+            text_color = "green"
+        else:
+            text_color = "black" if current_theme == "Light" else "white"
+        self.label.configure(text_color=text_color)
+
 
     def remove(self):  # Metoda usuwająca zadanie.
         self.frame.destroy()  # Usuwa graficzny element zadania.
@@ -344,6 +415,7 @@ class TaskGenerator:  # Klasa odpowiedzialna za generowanie planu dnia z wariant
             for time, task in tasks:  # Dla każdej pary (czas, opis) w wybranym wariancie,
                 self.task_manager.add_task(f"{time} - {task} [AUTO]")  # Dodaje zadanie oznaczone jako [AUTO] do listy.
             self.task_manager.sort_tasks()  # Sortuje zadania po dodaniu.
+            
 
 if __name__ == "__main__":  # Punkt wejścia do programu – wykonywany, gdy skrypt jest uruchamiany bezpośrednio.
     app = ToDoApp()  # Tworzy instancję głównej aplikacji.
