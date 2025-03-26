@@ -24,7 +24,8 @@ DAY_VARIATIONS_FILE = "day_variations.json"  # Plik JSON z wariantami planów dn
 SETTINGS_FILE = "settings.json"  # Plik JSON przechowujący ustawienia aplikacji (np. preferowany motyw).
 
 def get_linux_appearance():
-    try: # Wykonanie komendy systemowej, która pobiera aktywny motyw GTK.
+    try:
+        # Wykonanie komendy systemowej, która pobiera aktywny motyw GTK.
         result = subprocess.run(
             ["gsettings", "get", "org.gnome.desktop.interface", "gtk-theme"],  # Komenda odczytująca nazwę aktywnego motywu GTK.
             capture_output=True, text=True, check=True  # Przechwycenie wyniku jako tekst.
@@ -39,8 +40,8 @@ def get_linux_appearance():
         return "light"  # W razie błędu domyślnie zwracany jest jasny motyw.
 
 
-
-def save_default_day_variations(): # Funkcja zapisująca domyślne warianty planów dnia.
+# Funkcja zapisująca domyślne warianty planów dnia.
+def save_default_day_variations():
     default_variations = {
         "Dzień roboczy": [
             [("07:00", "Pobudka i śniadanie"), ("08:00", "Dojazd do pracy"), ("09:00", "Spotkanie zespołowe"), ("11:00", "Praca nad projektem"), ("13:00", "Lunch"), ("14:00", "Kodowanie i testowanie"), ("16:00", "Podsumowanie dnia"), ("17:00", "Powrót do domu"), ("18:00", "Obiad"), ("19:00", "Relaks lub hobby"), ("22:00", "Przygotowanie do snu")],
@@ -65,13 +66,17 @@ def save_default_day_variations(): # Funkcja zapisująca domyślne warianty plan
 
 save_default_day_variations()
 
-def load_day_variations(): # Sprawdza, czy plik z wariantami planów dnia istnieje
+def load_day_variations():
+    # Sprawdza, czy plik z wariantami planów dnia istnieje
     if os.path.exists(DAY_VARIATIONS_FILE):
         with open(DAY_VARIATIONS_FILE, "r", encoding="utf-8") as file:
-            try: # Próbuje wczytać dane z pliku JSON
+            try:
+                # Próbuje wczytać dane z pliku JSON
                 return json.load(file)
-            except json.JSONDecodeError: # Jeśli plik JSON jest uszkodzony lub niepoprawny, zwraca pusty słownik
-                return {} # Jeśli plik nie istnieje, zwraca pusty słownik
+            except json.JSONDecodeError:
+                # Jeśli plik JSON jest uszkodzony lub niepoprawny, zwraca pusty słownik
+                return {}
+    # Jeśli plik nie istnieje, zwraca pusty słownik
     return {}
 
 # Wczytuje warianty planów dnia z pliku JSON
@@ -119,7 +124,8 @@ class ToDoApp(ctk.CTk):
         if platform.system() == "Linux":
             actual_theme = get_linux_appearance()  # Pobiera motyw systemowy dla Linuxa
             ctk.set_appearance_mode("dark" if actual_theme == "dark" else "light")  # Ustawia motyw na ciemny lub jasny
-        else: # Dla systemów Windows i macOS sprawdza, czy system używa ciemnego motywu
+        else:
+            # Dla systemów Windows i macOS sprawdza, czy system używa ciemnego motywu
             if darkdetect.isDark():
                 ctk.set_appearance_mode("dark")  # Ustawia ciemny motyw
             else:
@@ -206,8 +212,53 @@ class ToDoApp(ctk.CTk):
         self.task_container = ctk.CTkFrame(self, fg_color="transparent")
         self.task_container.pack(pady=10, fill="both", expand=True)
 
+        self.summary_button = ctk.CTkButton(self, text="Podsumowanie dnia", fg_color="purple", hover_color="darkviolet", command=self.daily_summary)
+        self.summary_button.pack(pady=10)
+
         self.task_manager.load_tasks()  # Wczytuje zapisane zadania
         self.update_task_text_color()  # Aktualizuje kolory tekstu w zależności od motywu
+
+    def daily_summary(self): # Zliczenie zadań wykonanych oraz niewykonanych
+        total_tasks = len(self.task_manager.tasks)
+        done_tasks = sum(1 for task in self.task_manager.tasks if task.done)
+        undone_tasks = total_tasks - done_tasks
+
+        # Przygotowanie tekstu raportu
+        report = (
+            f"Wykonane zadania: {done_tasks}\n"
+            f"Niewykonane zadania: {undone_tasks}\n"
+        )
+
+        popup = CustomMessageBox(self, "Podsumowanie dnia", report, self.handle_summary_response)
+        popup.confirm_button. configure(text="Zapisz jako plik .txt", hover_color="darkgreen")
+        popup.cancel_button.configure(text="Zamknij", hover_color="darkred")
+
+    def handle_summary_response(self, response):
+        if response:
+            # Jeśli użytkownik wybrał "Tak", zapisujemy raport
+            total_tasks = len(self.task_manager.tasks)
+            done_tasks = sum(1 for task in self.task_manager.tasks if task.done)
+            undone_tasks = total_tasks - done_tasks
+            today_date = datetime.datetime.now().strftime("%Y-%m-%d")
+
+            report = (
+                f"Podsumowanie dnia {today_date}:\n"
+                f"Wykonane zadania: {done_tasks}\n"
+                f"Niewykonane zadania: {undone_tasks}\n"
+            )
+            self.save_summary_txt(report)   
+        else:
+            return
+
+    def save_summary_txt(self, report):
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=".txt",
+            filetypes=[("Pliki TXT", "*.txt")],
+            title="Zapisz raport jako TXT"
+        )
+        if file_path:
+            with open(file_path, "w", encoding="utf-8") as file:
+                file.write(report)
 
     def format_time_entry(self, event):
         # Pobiera tekst z pola do wpisywania godziny
