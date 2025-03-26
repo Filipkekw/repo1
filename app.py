@@ -230,8 +230,45 @@ class ToDoApp(ctk.CTk):
         )
 
         popup = CustomMessageBox(self, "Podsumowanie dnia", report, self.handle_summary_response)
+        popup.geometry("300x225")
         popup.confirm_button. configure(text="Zapisz jako plik .txt", hover_color="darkgreen")
         popup.cancel_button.configure(text="Zamknij", hover_color="darkred")
+        popup.confirm_button.pack(pady=5)
+        popup.cancel_button.pack(pady=5)
+        
+        pdf_button = ctk.CTkButton(popup, text="Zapisz jako plik .pdf", fg_color="purple", hover_color="darkviolet", command=lambda: self.save_summary_pdf(report, popup))
+        pdf_button.pack(pady=5)
+    
+    def save_summary_pdf(self, report, popup):
+        today_date = datetime.datetime.now().strftime("%Y-%m-%d")
+    
+        file_path = filedialog.asksaveasfilename(
+            initialfile=f"podsumowanie_{today_date}.pdf",
+            defaultextension=".pdf",
+            filetypes=[("Pliki PDF", "*.pdf")],
+            title="Zapisz raport jako PDF"
+        )
+
+        if file_path:
+            c = canvas.Canvas(file_path, pagesize=A4)
+            width, height = A4
+            y_position = height - 50
+
+            c.setFont("Aller_Lt", 16)
+            c.drawString(50, y_position, f"Podsumowanie dnia - {today_date}")
+            y_position -= 30
+
+            c.setFont("Aller_Lt", 12)
+            for line in report.split("\n"):
+                c.drawString(50, y_position, line)
+                y_position -= 20
+                if y_position < 50:
+                    c.showPage()
+                    c.setFont("Aller_Lt", 12)
+                    y_position = height - 50
+
+            c.save()
+        popup.destroy()
 
     def handle_summary_response(self, response):
         if response:
@@ -497,28 +534,13 @@ class Task:
         self.frame.pack(fill="x", padx=5, pady=3)  # Dodanie ramki do GUI, rozciągnięcie na całą szerokość
 
         self.check_var = ctk.BooleanVar(value=self.done)  # Zmienna przechowująca stan checkboxa (zaznaczony/odznaczony)
-        self.checkbox = ctk.CTkCheckBox(
-            self.frame,
-            text="",
-            variable=self.check_var,
-            command=self.toggle_done,  # Ustawienie funkcji, która zostanie wywołana po zmianie stanu checkboxa
-            checkmark_color="white",
-            fg_color="green",
-            border_color="green"
-        )  # Utworzenie checkboxa do oznaczania wykonania zadania
+        self.checkbox = ctk.CTkCheckBox(self.frame, text="", variable=self.check_var, command=self.toggle_done, checkmark_color="white", fg_color="green", border_color="green", hover_color="green")  # Utworzenie checkboxa do oznaczania wykonania zadania
         self.checkbox.pack(side="left", padx=5)  # Umieszczenie checkboxa po lewej stronie ramki
 
         self.label = ctk.CTkLabel(self.frame, text=self.text)  # Utworzenie etykiety wyświetlającej tekst zadania
         self.label.pack(side="left", expand=True, padx=5)  # Umieszczenie etykiety po lewej stronie i rozszerzenie na dostępne miejsce
 
-        self.delete_button = ctk.CTkButton(
-            self.frame,
-            text="Usuń",
-            fg_color="red",
-            command=self.remove,  # Funkcja wywoływana przy kliknięciu przycisku usuwania zadania
-            width=5,
-            hover_color="darkred"
-        )  # Utworzenie przycisku do usuwania zadania
+        self.delete_button = ctk.CTkButton(self.frame, text="Usuń", fg_color="red", command=self.remove, width=5, hover_color="darkred")  # Utworzenie przycisku do usuwania zadania
         self.delete_button.pack(side="right", padx=5)  # Umieszczenie przycisku po prawej stronie ramki
         self.update_style()  # Aktualizacja stylu etykiety w zależności od stanu zadania
 
