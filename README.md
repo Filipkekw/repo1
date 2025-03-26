@@ -13,6 +13,7 @@ Jest to prosta aplikacja lista zadań stworzona przy użyciu biblioteki `customt
 - Możliwość eksportu wszystkich aktualnych zadań z listy do pliku w formacie PDF.
 - Zmiana czcionki w plikach pdf aby polskie znaki specjlane były normalnie pokazywane.
 - Automatyczne nazywanie plików .pdf z datą ich wygenerowania.
+- Podsumowywanie dnia i eksport podsumowania do pliku .txt lub .pdf.
 
 ## Wymagania:
 - Python 3.11
