@@ -218,85 +218,6 @@ class ToDoApp(ctk.CTk):
         self.task_manager.load_tasks()  # Wczytuje zapisane zadania
         self.update_task_text_color()  # Aktualizuje kolory tekstu w zależności od motywu
 
-    def daily_summary(self): # Zliczenie zadań wykonanych oraz niewykonanych
-        total_tasks = len(self.task_manager.tasks)
-        done_tasks = sum(1 for task in self.task_manager.tasks if task.done)
-        undone_tasks = total_tasks - done_tasks
-
-        # Przygotowanie tekstu raportu
-        report = (
-            f"Wykonane zadania: {done_tasks}\n"
-            f"Niewykonane zadania: {undone_tasks}\n"
-        )
-
-        popup = CustomMessageBox(self, "Podsumowanie dnia", report, self.handle_summary_response)
-        popup.geometry("300x225")
-        popup.confirm_button. configure(text="Zapisz jako plik .txt", hover_color="darkgreen")
-        popup.cancel_button.configure(text="Zamknij", hover_color="darkred")
-        popup.confirm_button.pack(pady=5)
-        popup.cancel_button.pack(pady=5)
-        
-        pdf_button = ctk.CTkButton(popup, text="Zapisz jako plik .pdf", fg_color="purple", hover_color="darkviolet", command=lambda: self.save_summary_pdf(report, popup))
-        pdf_button.pack(pady=5)
-    
-    def save_summary_pdf(self, report, popup):
-        today_date = datetime.datetime.now().strftime("%Y-%m-%d")
-    
-        file_path = filedialog.asksaveasfilename(
-            initialfile=f"podsumowanie_{today_date}.pdf",
-            defaultextension=".pdf",
-            filetypes=[("Pliki PDF", "*.pdf")],
-            title="Zapisz raport jako PDF"
-        )
-
-        if file_path:
-            c = canvas.Canvas(file_path, pagesize=A4)
-            width, height = A4
-            y_position = height - 50
-
-            c.setFont("Aller_Lt", 16)
-            c.drawString(50, y_position, f"Podsumowanie dnia - {today_date}")
-            y_position -= 30
-
-            c.setFont("Aller_Lt", 12)
-            for line in report.split("\n"):
-                c.drawString(50, y_position, line)
-                y_position -= 20
-                if y_position < 50:
-                    c.showPage()
-                    c.setFont("Aller_Lt", 12)
-                    y_position = height - 50
-
-            c.save()
-        popup.destroy()
-
-    def handle_summary_response(self, response):
-        if response:
-            # Jeśli użytkownik wybrał "Tak", zapisujemy raport
-            total_tasks = len(self.task_manager.tasks)
-            done_tasks = sum(1 for task in self.task_manager.tasks if task.done)
-            undone_tasks = total_tasks - done_tasks
-            today_date = datetime.datetime.now().strftime("%Y-%m-%d")
-
-            report = (
-                f"Podsumowanie dnia {today_date}:\n"
-                f"Wykonane zadania: {done_tasks}\n"
-                f"Niewykonane zadania: {undone_tasks}\n"
-            )
-            self.save_summary_txt(report)   
-        else:
-            return
-
-    def save_summary_txt(self, report):
-        file_path = filedialog.asksaveasfilename(
-            defaultextension=".txt",
-            filetypes=[("Pliki TXT", "*.txt")],
-            title="Zapisz raport jako TXT"
-        )
-        if file_path:
-            with open(file_path, "w", encoding="utf-8") as file:
-                file.write(report)
-
     def format_time_entry(self, event):
         # Pobiera tekst z pola do wpisywania godziny
         text = self.time_entry.get()
@@ -446,6 +367,94 @@ class ToDoApp(ctk.CTk):
                         self.system_theme = ctk.get_appearance_mode()
                 except json.JSONDecodeError:
                     pass  # Jeśli plik JSON jest uszkodzony, ignoruje błąd
+    
+    def daily_summary(self):  # Zliczenie zadań wykonanych oraz niewykonanych
+        total_tasks = len(self.task_manager.tasks)  # Pobiera całkowitą liczbę zadań
+        done_tasks = sum(1 for task in self.task_manager.tasks if task.done)  # Liczy wykonane zadania
+        undone_tasks = total_tasks - done_tasks  # Oblicza liczbę niewykonanych zadań
+
+        # Przygotowanie tekstu raportu
+        report = (
+            f"Wykonane zadania: {done_tasks}\n"
+            f"Niewykonane zadania: {undone_tasks}\n"
+        )
+
+        # Tworzy okno popup do wyświetlenia podsumowania dnia
+        popup = CustomMessageBox(self, "Podsumowanie dnia", report, self.handle_summary_response)
+        popup.geometry("300x225")  # Ustawia rozmiar popupu na 300x225 pikseli
+
+        # Konfiguracja przycisków w popupie
+        popup.confirm_button.configure(text="Zapisz jako plik .txt", hover_color="darkgreen")  # Zmienia tekst i kolor podświetlenia przycisku
+        popup.cancel_button.configure(text="Zamknij", hover_color="darkred")  # Zmienia tekst i kolor podświetlenia przycisku "Zamknij"
+        popup.confirm_button.pack(pady=5)  # Dodaje odstęp pionowy dla przycisku "Zapisz jako TXT"
+        popup.cancel_button.pack(pady=5)  # Dodaje odstęp pionowy dla przycisku "Zamknij"
+
+        # Dodaje nowy przycisk "Zapisz jako plik .pdf" do popupu
+        pdf_button = ctk.CTkButton(
+            popup, text="Zapisz jako plik .pdf", fg_color="purple", hover_color="darkviolet",
+            command=lambda: self.save_summary_pdf(report, popup)  # Przekazuje raport i popup do funkcji zapisującej PDF
+        )
+        pdf_button.pack(pady=5)  # Wyświetla przycisk w popupie z odstępem pionowym
+
+    def save_summary_pdf(self, report, popup):
+        today_date = datetime.datetime.now().strftime("%Y-%m-%d")  # Pobiera aktualną datę w formacie YYYY-MM-DD
+
+        # Otwiera okno dialogowe do wyboru nazwy pliku i lokalizacji
+        file_path = filedialog.asksaveasfilename(
+            initialfile=f"podsumowanie_{today_date}.pdf",  # Domyślna nazwa pliku
+            defaultextension=".pdf",  # Automatyczne dodanie rozszerzenia .pdf
+            filetypes=[("Pliki PDF", "*.pdf")],  # Określenie obsługiwanych formatów plików
+            title="Zapisz raport jako PDF"  # Tytuł okna dialogowego
+        )
+
+        if file_path:
+            c = canvas.Canvas(file_path, pagesize=A4)  # Tworzy nowy dokument PDF o rozmiarze A4
+            width, height = A4  # Pobiera szerokość i wysokość strony A4
+            y_position = height - 50  # Ustawia początkową pozycję tekstu na stronie
+
+            c.setFont("Aller_Lt", 16)  # Ustawia czcionkę nagłówka
+            c.drawString(50, y_position, f"Podsumowanie dnia - {today_date}")  # Dodaje nagłówek z datą
+            y_position -= 30  # Przesuwa pozycję tekstu w dół
+
+            c.setFont("Aller_Lt", 12)  # Ustawia czcionkę dla treści raportu
+            for line in report.split("\n"):  # Iteruje przez każdą linię raportu
+                c.drawString(50, y_position, line)  # Rysuje tekst raportu w pliku PDF
+                y_position -= 20  # Przesuwa pozycję w dół
+                if y_position < 50:  # Jeśli brakuje miejsca na stronie
+                    c.showPage()  # Tworzy nową stronę
+                    c.setFont("Aller_Lt", 12)  # Ponownie ustawia czcionkę
+                    y_position = height - 50  # Resetuje pozycję tekstu
+
+            c.save()  # Zapisuje plik PDF
+        popup.destroy()  # Zamyka popup po zapisaniu pliku
+
+    def handle_summary_response(self, response):
+        if response:
+            # Jeśli użytkownik wybrał "Tak", zapisujemy raport
+            total_tasks = len(self.task_manager.tasks)  # Pobiera liczbę wszystkich zadań
+            done_tasks = sum(1 for task in self.task_manager.tasks if task.done)  # Liczy wykonane zadania
+            undone_tasks = total_tasks - done_tasks  # Oblicza liczbę niewykonanych zadań
+            today_date = datetime.datetime.now().strftime("%Y-%m-%d")  # Pobiera aktualną datę
+
+            # Tworzy tekst raportu zawierający datę
+            report = (
+                f"Podsumowanie dnia {today_date}:\n"
+                f"Wykonane zadania: {done_tasks}\n"
+                f"Niewykonane zadania: {undone_tasks}\n"
+            )
+            self.save_summary_txt(report)  # Wywołuje funkcję zapisującą raport jako plik TXT
+        else:
+            return  # Jeśli użytkownik anulował, funkcja nie wykonuje żadnych akcji
+
+    def save_summary_txt(self, report): # Otwiera okno dialogowe do wyboru nazwy pliku i lokalizacji
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=".txt",  # Automatyczne dodanie rozszerzenia .txt
+            filetypes=[("Pliki TXT", "*.txt")],  # Określenie obsługiwanych formatów plików
+            title="Zapisz raport jako TXT"  # Tytuł okna dialogowego
+        )
+        if file_path:
+            with open(file_path, "w", encoding="utf-8") as file:  # Otwiera plik w trybie zapisu z kodowaniem UTF-8
+                file.write(report)  # Zapisuje treść raportu do pliku
 
 class TaskManager:
     def __init__(self, parent): # Menedżer zadań przechowujący i zarządzający listą zadań.
