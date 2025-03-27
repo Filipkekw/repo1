@@ -246,7 +246,7 @@ class ToDoApp(ctk.CTk):
             if time_text == "HH:MM":
                 return True
             # Sprawdza, czy tekst pasuje do formatu godziny HH:MM
-            datetime.datetime.strptime(time_text, "%H:%M").time()
+            datetime.strptime(time_text, "%H:%M").time()
             return True
         except ValueError:
             return False  # Jeśli wystąpił błąd, oznacza to niepoprawny format godziny
@@ -417,7 +417,7 @@ class ToDoApp(ctk.CTk):
         pdf_button.pack(pady=5)  # Wyświetla przycisk w popupie z odstępem pionowym
 
     def save_summary_pdf(self, report, popup):
-        today_date = datetime.datetime.now().strftime("%Y-%m-%d")  # Pobiera aktualną datę w formacie YYYY-MM-DD
+        today_date = datetime.now().strftime("%Y-%m-%d")  # Pobiera aktualną datę w formacie YYYY-MM-DD
 
         # Otwiera okno dialogowe do wyboru nazwy pliku i lokalizacji
         file_path = filedialog.asksaveasfilename(
@@ -454,7 +454,7 @@ class ToDoApp(ctk.CTk):
             total_tasks = len(self.task_manager.tasks)  # Pobiera liczbę wszystkich zadań
             done_tasks = sum(1 for task in self.task_manager.tasks if task.done)  # Liczy wykonane zadania
             undone_tasks = total_tasks - done_tasks  # Oblicza liczbę niewykonanych zadań
-            today_date = datetime.datetime.now().strftime("%Y-%m-%d")  # Pobiera aktualną datę
+            today_date = datetime.now().strftime("%Y-%m-%d")  # Pobiera aktualną datę
 
             # Tworzy tekst raportu zawierający datę
             report = (
@@ -477,43 +477,44 @@ class ToDoApp(ctk.CTk):
                 file.write(report)  # Zapisuje treść raportu do pliku
 
     def show_history(self):
-        history_window = ctk.CTkToplevel(self)
-        history_window.title("Historia - Ostatni tydzień")
-        history_window.geometry("300x320")
-        history_window.resizable(False, False)
-        history_window.attributes('-topmost', True)
+        history_window = ctk.CTkToplevel(self)  # Tworzy nowe okno podrzędne
+        history_window.title("Historia - Ostatni tydzień")  # Ustawia tytuł okna
+        history_window.geometry("300x320")  # Ustawia rozmiar okna
+        history_window.resizable(False, False)  # Blokuje możliwość zmiany rozmiaru
+        history_window.attributes('-topmost', True)  # Ustawia okno na wierzchu
 
-        label = ctk.CTkLabel(history_window, text="Wybierz datę:")
-        label.pack(pady=(10, 5))
+        label = ctk.CTkLabel(history_window, text="Wybierz datę:")  # Tworzy etykietę z tekstem
+        label.pack(pady=(10, 5))  # Wyświetla etykietę z odstępem
 
-        today = datetime.today()
-        for i in range(7):
-            date = today - timedelta(days=i+1)
-            dates = date.strftime("%Y-%m-%d")
+        today = datetime.today()  # Pobiera dzisiejszą datę
+        for i in range(7):  # Iteruje przez ostatnie 7 dni
+            date = today - timedelta(days=i+1)  # Oblicza datę sprzed i+1 dni
+            dates = date.strftime("%Y-%m-%d")  # Formatuje datę jako string
 
-            date_button = ctk.CTkButton(history_window, text=dates, corner_radius=10, command=lambda d=dates: self.open_history_pdf(d))
-            date_button.pack(pady=5, fill="x")
+            date_button = ctk.CTkButton(history_window, text=dates, corner_radius=10, command=lambda d=dates: self.open_history_pdf(d))  # Tworzy przycisk z datą
+            date_button.pack(pady=5, fill="x")  # Wyświetla przycisk z odstępem i szerokością dopasowaną do okna
 
     def open_history_pdf(self, dates):
-        base_dir = os.path.dirname(__file__)
-        file_date = dates.replace("-", "_")
-        file_name = f"harmonogram_{file_date}.pdf"
-        file_path = os.path.join(base_dir, file_name)
-        print(f"sprawdzam istnienie pliku: {file_path}")
-        print("czy plik istnieje?", os.path.exists(file_path))
+        base_dir = os.path.dirname(__file__)  # Pobiera katalog, w którym znajduje się plik skryptu
+        file_date = dates.replace("-", "_")  # Zamienia myślniki na podkreślenia w dacie
+        file_name = f"harmonogram_{file_date}.pdf"  # Tworzy nazwę pliku PDF
+        file_path = os.path.join(base_dir, file_name)  # Tworzy pełną ścieżkę do pliku
+        print(f"sprawdzam istnienie pliku: {file_path}")  # Wypisuje sprawdzaną ścieżkę
+        print("czy plik istnieje?", os.path.exists(file_path))  # Sprawdza, czy plik istnieje
 
-        if os.path.exists(file_path):
+        if os.path.exists(file_path):  # Jeśli plik istnieje
             try:
-                if platform.system() == "Windows":
-                    os.startfile(file_path)
-                elif platform.system() == "Darwin": #MacOS
-                    subprocess.call(["open", file_path])
-                else:
-                    subprocess.call(["xdg-open", file_path])
-            except Exception as e:
-                print(f"Nie udało się otworzyć pliku: {e}")
+                if platform.system() == "Windows":  # Jeśli system to Windows
+                    os.startfile(file_path)  # Otwiera plik za pomocą domyślnej aplikacji
+                elif platform.system() == "Darwin":  # Jeśli system to macOS
+                    subprocess.call(["open", file_path])  # Otwiera plik poleceniem "open"
+                else:  # Jeśli system to Linux
+                    subprocess.call(["xdg-open", file_path])  # Otwiera plik poleceniem "xdg-open"
+            except Exception as e:  # Jeśli wystąpił błąd
+                print(f"Nie udało się otworzyć pliku: {e}")  # Wypisuje komunikat o błędzie
         else:
-            print("Plik .pdf z harmonogramem dla tej daty nie istnieje.")
+            print("Plik .pdf z harmonogramem dla tej daty nie istnieje.")  # Informuje, że plik nie istnieje
+
 class TaskManager:
     def __init__(self, parent): # Menedżer zadań przechowujący i zarządzający listą zadań.
         self.parent = parent  # Referencja do głównej aplikacji
@@ -576,7 +577,7 @@ class TaskManager:
             parts = task.text.split(" - ", 1)
             if len(parts) > 1 and ":" in parts[0]:  # Sprawdza, czy pierwszy fragment tekstu zawiera godzinę
                 try:
-                    return datetime.datetime.strptime(parts[0], "%H:%M").time()  # Konwertuje na obiekt czasu
+                    return datetime.strptime(parts[0], "%H:%M").time()  # Konwertuje na obiekt czasu
                 except ValueError:
                     return datetime.time(23, 59)  # Jeśli format godziny jest niepoprawny, ustawia na koniec dnia
             return datetime.time(23, 59)  # Jeśli brak godziny, zadanie trafia na koniec listy
