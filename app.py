@@ -90,6 +90,7 @@ class CustomMessageBox(ctk.CTkToplevel):
 
         self.title(title)  # Ustawia tytuł okna dialogowego
         self.geometry("300x175")  # Ustawia rozmiar okna na 300x175 pikseli
+        self.resizable(False, False) # Blokuje możliwość zmiany rozmiaru okna
         self.on_confirm = on_confirm  # Przechowuje funkcję wywoływaną po wyborze
 
         # Tworzy etykietę (label) z wiadomością dla użytkownika
@@ -119,7 +120,7 @@ class CustomMessageBox(ctk.CTkToplevel):
 class ToDoApp(ctk.CTk):
     def __init__(self):
         super().__init__()  # Inicjalizacja klasy nadrzędnej `CTk` (główne okno aplikacji)
-
+        
         # Wykrywanie systemowego motywu – uwzględnienie systemu Linux
         if platform.system() == "Linux":
             actual_theme = get_linux_appearance()  # Pobiera motyw systemowy dla Linuxa
@@ -135,6 +136,7 @@ class ToDoApp(ctk.CTk):
 
         self.title("To-Do List")  # Ustawia tytuł okna aplikacji
         self.geometry("600x900")  # Ustawia rozmiar okna aplikacji na 600x900 pikseli
+        self.resizable(False, False)
 
         # Tworzy górny pasek interfejsu
         top_bar = ctk.CTkFrame(self, fg_color="transparent")
@@ -345,11 +347,11 @@ class ToDoApp(ctk.CTk):
         
         # Pobiera aktualnie ustawiony motyw
         current_theme = ctk.get_appearance_mode()
-        text_color = "black" if current_theme == "Light" else "white"
 
         # Przechodzi przez wszystkie zadania i aktualizuje ich kolor tekstu
         for task in self.task_manager.tasks:
             if hasattr(task, "label"):
+                text_color = "green" if task.done else ("black" if current_theme == "Light" else "White")
                 task.label.configure(text_color=text_color)
 
     def save_settings(self):
@@ -493,7 +495,9 @@ class TaskManager:
                             self.parent.day_type_var.set(plan)  # Ustawia plan dnia w interfejsie
                         tasks_data = data.get("tasks", [])  # Pobiera listę zapisanych zadań
                         for task_data in tasks_data:
-                            self.add_task(task_data["text"], task_data.get("done", False))  # Dodaje każde zadanie do listy
+                            task = Task(self.parent.task_container, task_data["text"], task_data.get("done", False), self.remove_task, self.save_tasks)
+                            self.tasks.append(task)
+                            task.update_style()
                     else:
                         # Obsługuje starszy format zapisu (gdy JSON zawierał tylko listę zadań)
                         for task_data in data:
@@ -557,12 +561,13 @@ class Task:
         self.done = self.check_var.get()  # Aktualizacja stanu zadania na podstawie wartości checkboxa
         self.update_style()  # Aktualizacja stylu etykiety (np. zmiana koloru tekstu) zgodnie z aktualnym stanem
         self.update_callback()  # Wywołanie funkcji aktualizującej (np. zapis zmian w zadaniu)
+        self.parent.update_idletasks()
 
     def update_style(self):
-        current_theme = ctk.get_appearance_mode()  # Pobranie aktualnego trybu wyglądu (Light lub Dark)
         if self.done:
             text_color = "green"  # Jeśli zadanie jest ukończone, ustaw kolor tekstu na zielony
         else:
+            current_theme = ctk.get_appearance_mode()
             text_color = "black" if current_theme == "Light" else "white"  # Dla niedokończonych zadań, ustaw kolor tekstu zależnie od trybu
         self.label.configure(text_color=text_color)  # Zastosowanie wybranego koloru do etykiety zadania
 
