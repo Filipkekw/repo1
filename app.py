@@ -3,6 +3,7 @@ import json  # Import modułu json, który umożliwia zapis i odczyt danych w fo
 import os  # Import modułu os, który pozwala na operacje na plikach i ścieżkach.
 import random  # Import modułu random, który umożliwia losowy wybór elementów.
 import datetime  # Import modułu datetime do obsługi dat i godzin.
+from datetime import datetime, timedelta
 import reportlab  # Import biblioteki ReportLab do generowania plików PDF.
 from reportlab.lib.pagesizes import A4  # Import stałej A4 określającej rozmiar strony PDF.
 from reportlab.pdfgen import canvas  # Import narzędzia canvas do rysowania zawartości na stronach PDF.
@@ -38,7 +39,6 @@ def get_linux_appearance():
         return "light"  # W przeciwnym razie zwrócenie wartości "light".
     except Exception:
         return "light"  # W razie błędu domyślnie zwracany jest jasny motyw.
-
 
 # Funkcja zapisująca domyślne warianty planów dnia.
 def save_default_day_variations():
@@ -135,7 +135,7 @@ class ToDoApp(ctk.CTk):
         self.system_theme = ctk.get_appearance_mode()  # Pobiera aktualnie ustawiony motyw
 
         self.title("To-Do List")  # Ustawia tytuł okna aplikacji
-        self.geometry("600x900")  # Ustawia rozmiar okna aplikacji na 600x900 pikseli
+        self.geometry("600x800")  # Ustawia rozmiar okna aplikacji na 600x900 pikseli
         self.resizable(False, False)
 
         # Tworzy górny pasek interfejsu
@@ -203,7 +203,7 @@ class ToDoApp(ctk.CTk):
         self.day_menu.pack(pady=5)
 
         # Przycisk generowania planu dnia
-        self.generate_button = ctk.CTkButton(right_frame, text="Wygeneruj plan dnia", fg_color="blue", hover_color="darkblue", command=self.generate_sorted_plan)
+        self.generate_button = ctk.CTkButton(right_frame, text="Wygeneruj plan dnia", hover_color="darkblue", command=self.generate_sorted_plan)
         self.generate_button.pack(pady=5)
 
         # Przycisk eksportowania planu dnia do pliku PDF
@@ -214,8 +214,20 @@ class ToDoApp(ctk.CTk):
         self.task_container = ctk.CTkFrame(self, fg_color="transparent")
         self.task_container.pack(pady=10, fill="both", expand=True)
 
-        self.summary_button = ctk.CTkButton(self, text="Podsumowanie dnia", fg_color="purple", hover_color="darkviolet", command=self.daily_summary)
-        self.summary_button.pack(pady=10)
+        bottom_frame = ctk.CTkFrame(self, fg_color="transparent")
+        bottom_frame.pack(pady=5, fill="x")
+
+        left_frame2 = ctk.CTkFrame(bottom_frame, fg_color="transparent")
+        left_frame2.pack(side="left", fill="both", expand=True, padx=5)
+
+        right_frame2 = ctk.CTkFrame(bottom_frame, fg_color="transparent")
+        right_frame2.pack(side="right", fill="both", expand=True, padx=5)
+
+        self.summary_button = ctk.CTkButton(left_frame2, text="Podsumowanie dnia", fg_color="purple", hover_color="darkviolet", command=self.daily_summary)
+        self.summary_button.pack(side="right", pady=10)
+
+        self.history_button = ctk.CTkButton(right_frame2, text="Historia", hover_color="darkblue", command=self.show_history)
+        self.history_button.pack(side="left", pady=10)
 
         self.task_manager.load_tasks()  # Wczytuje zapisane zadania
         self.update_task_text_color()  # Aktualizuje kolory tekstu w zależności od motywu
@@ -457,6 +469,24 @@ class ToDoApp(ctk.CTk):
         if file_path:
             with open(file_path, "w", encoding="utf-8") as file:  # Otwiera plik w trybie zapisu z kodowaniem UTF-8
                 file.write(report)  # Zapisuje treść raportu do pliku
+
+    def show_history(self):
+        history_window = ctk.CTkToplevel(self)
+        history_window.title("Historia - Ostatni tydzień")
+        history_window.geometry("300x320")
+        history_window.resizable(False, False)
+        history_window.attributes('-topmost', True)
+
+        label = ctk.CTkLabel(history_window, text="Wybierz datę:")
+        label.pack(pady=(10, 5))
+
+        today = datetime.today()
+        for i in range(7):
+            date = today - timedelta(days=i+1)
+            dates = date.strftime("%Y-%m-%d")
+
+            date_button = ctk.CTkButton(history_window, text=dates, corner_radius=10)
+            date_button.pack(pady=5, fill="x")
 
 class TaskManager:
     def __init__(self, parent): # Menedżer zadań przechowujący i zarządzający listą zadań.
