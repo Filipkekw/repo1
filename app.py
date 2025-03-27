@@ -5,6 +5,7 @@ import random  # Import modułu random, który umożliwia losowy wybór element�
 import datetime  # Import modułu datetime do obsługi dat i godzin.
 from datetime import datetime, timedelta
 import reportlab  # Import biblioteki ReportLab do generowania plików PDF.
+from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4  # Import stałej A4 określającej rozmiar strony PDF.
 from reportlab.pdfgen import canvas  # Import narzędzia canvas do rysowania zawartości na stronach PDF.
 from tkinter import filedialog  # Import modułu filedialog z Tkinter do wyświetlania okien zapisu/otwarcia plików.
@@ -289,7 +290,7 @@ class ToDoApp(ctk.CTk):
 
     def export_to_pdf(self):
         # Generuje domyślną nazwę pliku na podstawie aktualnej daty
-        default_filename = f"harmonogram_{datetime.datetime.now().strftime('%Y_%m_%d')}.pdf"
+        default_filename = f"harmonogram_{datetime.now().strftime('%Y_%m_%d')}.pdf"
         
         # Otwiera okno zapisu pliku
         file_path = filedialog.asksaveasfilename(
@@ -309,7 +310,7 @@ class ToDoApp(ctk.CTk):
         y_position = height - 50  # Pozycja początkowa tekstu
 
         # Pobranie aktualnej daty i wybranego planu dnia
-        generation_date = datetime.datetime.now().strftime("%Y-%m-%d")
+        generation_date = datetime.now().strftime("%Y-%m-%d")
         selected_plan = self.day_type_var.get()
 
         # Nagłówek pliku PDF
@@ -327,6 +328,11 @@ class ToDoApp(ctk.CTk):
         # Wypisywanie zadań w pliku PDF
         c.setFont("Aller_Lt", 12)
         for task in self.task_manager.tasks:
+            if task.done:
+                c.setFillColor(colors.green)
+            else:
+                c.setFillColor(colors.black)
+            
             c.drawString(50, y_position, f"- {task.text}")
             y_position -= 20
             # Jeśli miejsce na stronie się skończy, tworzy nową stronę
@@ -485,9 +491,29 @@ class ToDoApp(ctk.CTk):
             date = today - timedelta(days=i+1)
             dates = date.strftime("%Y-%m-%d")
 
-            date_button = ctk.CTkButton(history_window, text=dates, corner_radius=10)
+            date_button = ctk.CTkButton(history_window, text=dates, corner_radius=10, command=lambda d=dates: self.open_history_pdf(d))
             date_button.pack(pady=5, fill="x")
 
+    def open_history_pdf(self, dates):
+        base_dir = os.path.dirname(__file__)
+        file_date = dates.replace("-", "_")
+        file_name = f"harmonogram_{file_date}.pdf"
+        file_path = os.path.join(base_dir, file_name)
+        print(f"sprawdzam istnienie pliku: {file_path}")
+        print("czy plik istnieje?", os.path.exists(file_path))
+
+        if os.path.exists(file_path):
+            try:
+                if platform.system() == "Windows":
+                    os.startfile(file_path)
+                elif platform.system() == "Darwin": #MacOS
+                    subprocess.call(["open", file_path])
+                else:
+                    subprocess.call(["xdg-open", file_path])
+            except Exception as e:
+                print(f"Nie udało się otworzyć pliku: {e}")
+        else:
+            print("Plik .pdf z harmonogramem dla tej daty nie istnieje.")
 class TaskManager:
     def __init__(self, parent): # Menedżer zadań przechowujący i zarządzający listą zadań.
         self.parent = parent  # Referencja do głównej aplikacji
