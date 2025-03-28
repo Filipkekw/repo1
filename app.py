@@ -25,22 +25,6 @@ DATA_FILE = "tasks.json"  # Plik JSON przechowujący zadania użytkownika.
 DAY_VARIATIONS_FILE = "day_variations.json"  # Plik JSON z wariantami planów dnia.
 SETTINGS_FILE = "settings.json"  # Plik JSON przechowujący ustawienia aplikacji (np. preferowany motyw).
 
-def get_linux_appearance():
-    try:
-        # Wykonanie komendy systemowej, która pobiera aktywny motyw GTK.
-        result = subprocess.run(
-            ["gsettings", "get", "org.gnome.desktop.interface", "gtk-theme"],  # Komenda odczytująca nazwę aktywnego motywu GTK.
-            capture_output=True, text=True, check=True  # Przechwycenie wyniku jako tekst.
-        )
-        theme = result.stdout.strip().strip("'").lower()  # Usunięcie zbędnych znaków i zamiana na małe litery.
-
-        # Sprawdzenie, czy nazwa motywu zawiera "dark", co oznacza tryb ciemny.
-        if "dark" in theme:
-            return "dark"  # Zwrócenie wartości "dark", jeśli użytkownik używa ciemnego motywu.
-        return "light"  # W przeciwnym razie zwrócenie wartości "light".
-    except Exception:
-        return "light"  # W razie błędu domyślnie zwracany jest jasny motyw.
-
 # Funkcja zapisująca domyślne warianty planów dnia.
 def save_default_day_variations():
     default_variations = {
@@ -123,17 +107,7 @@ class ToDoApp(ctk.CTk):
         super().__init__()  # Inicjalizacja klasy nadrzędnej `CTk` (główne okno aplikacji)
         
         # Wykrywanie systemowego motywu – uwzględnienie systemu Linux
-        if platform.system() == "Linux":
-            actual_theme = get_linux_appearance()  # Pobiera motyw systemowy dla Linuxa
-            ctk.set_appearance_mode("dark" if actual_theme == "dark" else "light")  # Ustawia motyw na ciemny lub jasny
-        else:
-            # Dla systemów Windows i macOS sprawdza, czy system używa ciemnego motywu
-            if darkdetect.isDark():
-                ctk.set_appearance_mode("dark")  # Ustawia ciemny motyw
-            else:
-                ctk.set_appearance_mode("light")  # Ustawia jasny motyw
-
-        self.system_theme = ctk.get_appearance_mode()  # Pobiera aktualnie ustawiony motyw
+        ctk.set_appearance_mode("dark")
 
         self.title("To-Do List")  # Ustawia tytuł okna aplikacji
         self.geometry("600x800")  # Ustawia rozmiar okna aplikacji na 600x900 pikseli
@@ -143,13 +117,8 @@ class ToDoApp(ctk.CTk):
         top_bar = ctk.CTkFrame(self, fg_color="transparent")
         top_bar.pack(side="top", fill="x")  # Umieszcza pasek na górze okna, rozciągając go na całą szerokość
 
-        # Ustalanie opcji motywu w zależności od systemu operacyjnego
-        if platform.system() == "Linux":
-            theme_options = ["Jasny", "Ciemny"]  # Na Linuxie dostępne są tylko dwa tryby
-            self.theme_var = ctk.StringVar(value="Ciemny")  # Domyślnie ustawiony tryb ciemny
-        else:
-            theme_options = ["System", "Jasny", "Ciemny"]  # Na Windowsie i macOS dodana opcja "System"
-            self.theme_var = ctk.StringVar(value="System")  # Domyślnie ustawiony tryb systemowy
+        theme_options = ["Jasny", "Ciemny"]  # Na Linuxie dostępne są tylko dwa tryby
+        self.theme_var = ctk.StringVar(value="Ciemny")  # Domyślnie ustawiony tryb ciemny
 
         self.task_manager = TaskManager(self)  # Inicjalizacja menedżera zadań
 
@@ -186,18 +155,9 @@ class ToDoApp(ctk.CTk):
         right_frame = ctk.CTkFrame(top_frame, fg_color="transparent")
         right_frame.pack(side="right", fill="both", expand=True, padx=5)
 
-        # Pole tekstowe do wpisania treści zadania
-        self.task_entry = ctk.CTkEntry(left_frame, width=250, placeholder_text="Treść zadania")
-        self.task_entry.pack(pady=5)
-
-        # Pole do wpisania godziny zadania (format HH:MM)
-        self.time_entry = ctk.CTkEntry(left_frame, width=60, placeholder_text="HH:MM")
-        self.time_entry.pack(pady=5)
-        self.time_entry.bind("<KeyRelease>", self.format_time_entry)  # Formatowanie tekstu podczas wpisywania
-
-        # Przycisk dodawania nowego zadania
-        self.add_button = ctk.CTkButton(left_frame, text="Dodaj zadanie", fg_color="green", hover_color="darkgreen", command=self.add_task)
-        self.add_button.pack(pady=5)
+        # Przycisk "Dodaj zadanie" wysuwający dolny panel z polami do wpisywania godziny i minut, jak i przyciskiem do dodawania zadań
+        self.toggle_input_button = ctk.CTkButton(left_frame, text="Dodaj zadanie", fg_color="green", hover_color="darkgreen", command=self.toggle_task_panel) 
+        self.toggle_input_button.pack(pady=5)
 
         # Rozwijane menu do wyboru planu dnia
         self.day_menu = ctk.CTkComboBox(right_frame, values=day_types, variable=self.day_type_var, state="readonly")
@@ -215,23 +175,49 @@ class ToDoApp(ctk.CTk):
         self.task_container = ctk.CTkFrame(self, fg_color="transparent")
         self.task_container.pack(pady=10, fill="both", expand=True)
 
-        bottom_frame = ctk.CTkFrame(self, fg_color="transparent")
-        bottom_frame.pack(pady=5, fill="x")
+        self.history_button = ctk.CTkButton(left_frame, text="Historia", hover_color="darkblue", command=self.show_history)
+        self.history_button.pack(side="top", pady=5)
 
-        left_frame2 = ctk.CTkFrame(bottom_frame, fg_color="transparent")
-        left_frame2.pack(side="left", fill="both", expand=True, padx=5)
+        self.summary_button = ctk.CTkButton(left_frame, text="Podsumowanie dnia", fg_color="purple", hover_color="darkviolet", command=self.daily_summary)
+        self.summary_button.pack(side="top", pady=5)
+        
+        # Dolny panel (ukryty na start)
+        self.task_panel = ctk.CTkFrame(self, fg_color="transparent")
+        self.task_entry = ctk.CTkEntry(self.task_panel, placeholder_text="Wpisz zadanie", width=250)
+        self.task_entry.pack(side="left", padx=5, pady=5)
 
-        right_frame2 = ctk.CTkFrame(bottom_frame, fg_color="transparent")
-        right_frame2.pack(side="right", fill="both", expand=True, padx=5)
+        self.time_entry = ctk.CTkEntry(self.task_panel, placeholder_text="HH:MM", width=80)
+        self.time_entry.pack(side="left", padx=5, pady=5)
+        self.time_entry.bind("<KeyRelease>", self.format_time_entry)  # Formatowanie tekstu podczas wpisywania
 
-        self.summary_button = ctk.CTkButton(left_frame2, text="Podsumowanie dnia", fg_color="purple", hover_color="darkviolet", command=self.daily_summary)
-        self.summary_button.pack(side="right", pady=10)
+        self.confirm_button = ctk.CTkButton(self.task_panel, text="Dodaj zadanie", command=self.add_task, width=70, fg_color="green", hover_color="darkgreen")
+        self.confirm_button.pack(side="left", padx=5)
 
-        self.history_button = ctk.CTkButton(right_frame2, text="Historia", hover_color="darkblue", command=self.show_history)
-        self.history_button.pack(side="left", pady=10)
+        self.confirm_panel = ctk.CTkFrame(self)
+        self.right_frame = ctk.CTkFrame(self.confirm_panel, fg_color="transparent")
+        self.left_frame = ctk.CTkFrame(self.confirm_panel)
+        self.right_frame.pack(side="right", padx=5, fill="both")
+        self.left_frame.pack(side="left", padx=5, fill="both")
+        ctk.CTkLabel(self.confirm_panel, text="Czy chcesz nadpisać aktualny plan?", font=("Arial", 16)).pack(pady=3)
+        self.confirm_button2 = ctk.CTkButton(self.left_frame, text="Tak", command=self.generate_day_plan_confirm)
+        self.cancel_button2 = ctk.CTkButton(self.right_frame, text="Nie")
+        self.confirm_button2.pack(padx=5, pady=5)
+        self.cancel_button2.pack(padx=5, pady=5)
 
         self.task_manager.load_tasks()  # Wczytuje zapisane zadania
         self.update_task_text_color()  # Aktualizuje kolory tekstu w zależności od motywu
+
+    def toggle_task_panel(self): # Pokazuje lub chowa panel do dodawania zadań.
+        if self.task_panel.winfo_ismapped():
+            self.task_panel.pack_forget()
+        else:
+            self.task_panel.pack(pady=1)
+
+    def toggle_confirm_panel(self): # Pokazuje lub chowa panel do dodawania zadań.
+        if self.confirm_panel.winfo_ismapped():
+            self.confirm_panel.pack_forget()
+        else:
+            self.confirm_panel.pack(pady=1)
 
     def format_time_entry(self, event):
         # Pobiera tekst z pola do wpisywania godziny
@@ -275,7 +261,7 @@ class ToDoApp(ctk.CTk):
     def generate_sorted_plan(self):
         if any("[AUTO]" in task.text for task in self.task_manager.tasks):
             # Jeśli istnieją zadania automatycznie wygenerowane, pyta użytkownika o potwierdzenie
-            CustomMessageBox(self, "Potwierdzenie", "Czy chcesz nadpisać istniejący plan dnia?", self.handle_confirmation)
+            self.toggle_confirm_panel()
         else:
             self.execute_generation()  # Jeśli nie ma automatycznych zadań, od razu generuje plan dnia
 
@@ -345,12 +331,10 @@ class ToDoApp(ctk.CTk):
         c.save()  # Zapisuje plik PDF
 
     def change_theme(self, new_theme: str):
-        if new_theme == "System":
-            actual_theme = self.system_theme  # Używa wykrytego motywu systemowego
-        else:
-            # Mapa konwertująca nazwy z rozwijanego menu na wartości CustomTkinter
-            mapping = {"Jasny": "Light", "Ciemny": "Dark"}
-            actual_theme = mapping.get(new_theme, "Light")  # Domyślnie "Light", jeśli nieznana wartość
+        
+        # Mapa konwertująca nazwy z rozwijanego menu na wartości CustomTkinter
+        mapping = {"Jasny": "Light", "Ciemny": "Dark"}
+        actual_theme = mapping.get(new_theme, "Light")  # Domyślnie "Light", jeśli nieznana wartość
 
         ctk.set_appearance_mode(actual_theme)  # Ustawia nowy motyw
 
@@ -635,6 +619,10 @@ class ToDoApp(ctk.CTk):
         # Opcjonalnie pakujemy przyciski, aby mieć pewność, że są wyświetlone (inspirowane daily_summary)
         messagebox.confirm_button.pack(pady=5)
         messagebox.cancel_button.pack(pady=5)
+
+    def generate_day_plan_confirm(self):
+        self.execute_generation()
+        self.toggle_confirm_panel()
 
 class TaskManager:
     def __init__(self, parent): # Menedżer zadań przechowujący i zarządzający listą zadań.
