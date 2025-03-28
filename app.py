@@ -208,7 +208,7 @@ class ToDoApp(ctk.CTk):
         self.generate_button.pack(pady=5)
 
         # Przycisk eksportowania planu dnia do pliku PDF
-        self.export_button = ctk.CTkButton(right_frame, text="Eksportuj do PDF", fg_color="purple", hover_color="darkviolet", command=self.export_to_pdf)
+        self.export_button = ctk.CTkButton(right_frame, text="Eksportuj do PDF", fg_color="purple", hover_color="darkviolet", command=self.choose_export_option)
         self.export_button.pack(pady=5)
 
         # Główne okno na listę zadań
@@ -290,6 +290,7 @@ class ToDoApp(ctk.CTk):
 
     def export_to_pdf(self):
         # Generuje domyślną nazwę pliku na podstawie aktualnej daty
+        self.save_tasks_to_json()
         default_filename = f"harmonogram_{datetime.now().strftime('%Y_%m_%d')}.pdf"
         
         # Otwiera okno zapisu pliku
@@ -467,7 +468,9 @@ class ToDoApp(ctk.CTk):
             return  # Jeśli użytkownik anulował, funkcja nie wykonuje żadnych akcji
 
     def save_summary_txt(self, report): # Otwiera okno dialogowe do wyboru nazwy pliku i lokalizacji
+        today_date = datetime.now().strftime("%Y-%m-%d")
         file_path = filedialog.asksaveasfilename(
+            initialfile=f"podsumowanie_{today_date}.txt",
             defaultextension=".txt",  # Automatyczne dodanie rozszerzenia .txt
             filetypes=[("Pliki TXT", "*.txt")],  # Określenie obsługiwanych formatów plików
             title="Zapisz raport jako TXT"  # Tytuł okna dialogowego
@@ -479,7 +482,7 @@ class ToDoApp(ctk.CTk):
     def show_history(self):
         history_window = ctk.CTkToplevel(self)  # Tworzy nowe okno podrzędne
         history_window.title("Historia - Ostatni tydzień")  # Ustawia tytuł okna
-        history_window.geometry("300x320")  # Ustawia rozmiar okna
+        history_window.geometry("300x350")  # Ustawia rozmiar okna
         history_window.resizable(False, False)  # Blokuje możliwość zmiany rozmiaru
         history_window.attributes('-topmost', True)  # Ustawia okno na wierzchu
 
@@ -491,16 +494,16 @@ class ToDoApp(ctk.CTk):
             date = today - timedelta(days=i+1)  # Oblicza datę sprzed i+1 dni
             dates = date.strftime("%Y-%m-%d")  # Formatuje datę jako string
 
-            date_button = ctk.CTkButton(history_window, text=dates, corner_radius=10, command=lambda d=dates: self.open_history_pdf(d))  # Tworzy przycisk z datą
+            date_button = ctk.CTkButton(history_window, text=dates, corner_radius=10, command=lambda d=dates, history_window=history_window: [self.open_history_pdf(d), history_window.destroy()], hover_color="darkblue")  # Tworzy przyciski z datami w popupie
             date_button.pack(pady=5, fill="x")  # Wyświetla przycisk z odstępem i szerokością dopasowaną do okna
+        export_button = ctk.CTkButton(history_window, text="Eksportuj cały tydzień do pdf", command=lambda: [self.export_weekly_tasks_to_pdf(), history_window.destroy()], fg_color="purple", hover_color="darkviolet")
+        export_button.pack(pady=5, fill="x")
 
     def open_history_pdf(self, dates):
         base_dir = os.path.dirname(__file__)  # Pobiera katalog, w którym znajduje się plik skryptu
         file_date = dates.replace("-", "_")  # Zamienia myślniki na podkreślenia w dacie
         file_name = f"harmonogram_{file_date}.pdf"  # Tworzy nazwę pliku PDF
         file_path = os.path.join(base_dir, file_name)  # Tworzy pełną ścieżkę do pliku
-        print(f"sprawdzam istnienie pliku: {file_path}")  # Wypisuje sprawdzaną ścieżkę
-        print("czy plik istnieje?", os.path.exists(file_path))  # Sprawdza, czy plik istnieje
 
         if os.path.exists(file_path):  # Jeśli plik istnieje
             try:
@@ -514,6 +517,124 @@ class ToDoApp(ctk.CTk):
                 print(f"Nie udało się otworzyć pliku: {e}")  # Wypisuje komunikat o błędzie
         else:
             print("Plik .pdf z harmonogramem dla tej daty nie istnieje.")  # Informuje, że plik nie istnieje
+
+    def save_tasks_to_json(self):
+        date_str = datetime.now().strftime('%Y_%m_%d')
+        json_filename = f"harmonogram_{date_str}.json"
+
+        tasks_data = []
+        for task in self.task_manager.tasks:
+            tasks_data.append({
+                "text": task.text,
+                "done": task.done
+            })
+
+        with open(json_filename, "w", encoding="utf-8") as json_file:
+            json.dump(tasks_data, json_file, indent=4, ensure_ascii=False)
+
+    import json
+
+    def export_weekly_tasks_to_pdf(self):
+        # Ustalamy daty początkową i końcową tygodnia
+        start_date = (datetime.now() - timedelta(days=7)).strftime('%Y_%m_%d')
+        end_date = datetime.now().strftime('%Y_%m_%d')
+        default_filename = f"harmonogram_{start_date}_do_{end_date}.pdf"
+
+        # Okno zapisu pliku
+        file_path = filedialog.asksaveasfilename(
+            initialfile=default_filename,
+            defaultextension=".pdf",
+            filetypes=[("Pliki PDF", "*.pdf")],
+            title="Zapisz harmonogram tygodnia jako PDF"
+        )
+        if not file_path:
+            return
+
+        c = canvas.Canvas(file_path, pagesize=A4)
+        width, height = A4
+        y_position = height - 50
+
+        c.setFont("Aller_Lt", 16)
+        c.drawString(50, y_position, "Harmonogram tygodnia")
+        y_position -= 30
+
+        c.setFont("Aller_Lt", 12)
+        c.drawString(50, y_position, f"Zakres: {start_date} - {end_date}")
+        y_position -= 30
+
+        all_week_tasks = []
+        for i in range(7):
+            date_str = (datetime.now() - timedelta(days=i)).strftime('%Y_%m_%d')
+            json_filename = f"harmonogram_{date_str}.json"
+            if os.path.exists(json_filename):
+                with open(json_filename, "r", encoding="utf-8") as json_file:
+                    tasks_data = json.load(json_file)
+                    all_week_tasks.extend(tasks_data)
+
+        total_tasks = len(all_week_tasks)
+        done_tasks = sum(1 for task in all_week_tasks if task['done'])
+        not_done_tasks = total_tasks - done_tasks
+
+        c.setFont("Aller_Lt", 12)
+        summary_lines = [
+            f"Podsumowanie:",
+            f"Wszystkie zadania: {total_tasks}",
+            f"Zrobione: {done_tasks}",
+            f"Niezrobione: {not_done_tasks}"
+        ]
+        for line in summary_lines:
+            c.drawString(50, y_position, line)
+            y_position -= 20
+
+        # Iteracja po ostatnich 7 dniach
+        for i in range(7):
+            date_str = (datetime.now() - timedelta(days=i)).strftime('%Y_%m_%d')
+            json_filename = f"harmonogram_{date_str}.json"
+
+            # Sprawdzamy, czy plik JSON istnieje
+            if os.path.exists(json_filename):
+                with open(json_filename, "r", encoding="utf-8") as json_file:
+                    tasks_data = json.load(json_file)
+
+                # Dodanie nagłówka dla danego dnia
+                c.setFont("Aller_Lt", 14)
+                c.setFillColor(colors.blue)
+                c.drawString(50, y_position, f"{date_str}")
+                y_position -= 20
+
+                c.setFont("Aller_Lt", 12)
+                # Wypisujemy zadania
+                for task in tasks_data:
+                    c.setFillColor(colors.green if task["done"] else colors.black)
+                    c.drawString(50, y_position, f"- {task['text']}")
+                    y_position -= 20
+
+                    if y_position < 50:
+                        c.showPage()
+                        y_position = height - 50
+
+        c.save()
+
+    def choose_export_option(self, window_to_close=None):
+        # Definiujemy lokalną funkcję callback, która wykorzysta wynik wyboru użytkownika
+        def export_callback(response):
+            if window_to_close:
+                window_to_close.destroy()
+            if response:
+                self.export_to_pdf()
+            else:
+                self.export_weekly_tasks_to_pdf()
+
+        # Tworzymy okno dialogowe, przekazując nasz callback
+        messagebox = CustomMessageBox(self, "Eksport do PDF", "Co chcesz wyeksportować?", export_callback)
+        
+        # Zmiana tekstów przycisków, aby odpowiadały naszym opcjom
+        messagebox.confirm_button.configure(text="Tylko dzisiaj", fg_color="blue", hover_color="darkblue")
+        messagebox.cancel_button.configure(text="Cały tydzień", fg_color="blue", hover_color="darkblue")
+        
+        # Opcjonalnie pakujemy przyciski, aby mieć pewność, że są wyświetlone (inspirowane daily_summary)
+        messagebox.confirm_button.pack(pady=5)
+        messagebox.cancel_button.pack(pady=5)
 
 class TaskManager:
     def __init__(self, parent): # Menedżer zadań przechowujący i zarządzający listą zadań.
