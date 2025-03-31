@@ -11,10 +11,10 @@ Jest to prosta aplikacja lista zadań stworzona przy użyciu biblioteki `customt
 - Zapis danych do pliku JSON, automatycznie wczytywanych przy uruchomieniu aplikacji.
 - Możliwość wygenerowania planu dnia roboczego, wolnego od pracy lub pracy zdalnej.
 - Możliwość eksportu wszystkich aktualnych zadań z listy do pliku w formacie PDF.
-- Zmiana czcionki w plikach pdf aby polskie znaki specjlane były normalnie pokazywane.
 - Automatyczne nazywanie plików .pdf z datą ich wygenerowania.
 - Podsumowywanie dnia i eksport podsumowania do pliku .txt lub .pdf.
 - Eksport zadań z całego tygodnia do pliku .pdf z podsumowaniem.
+- Możliwość obejrzenia harmonogramu jakiegokolwiek dnia 7 dni wstecz.
 
 ## Wymagania:
 - Python 3.11
