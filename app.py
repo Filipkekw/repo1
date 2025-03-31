@@ -12,7 +12,6 @@ from tkinter import filedialog  # Import modułu filedialog z Tkinter do wyświe
 from reportlab.pdfbase import pdfmetrics  # Import modułu pdfmetrics z ReportLab do rejestracji czcionek.
 from reportlab.pdfbase.ttfonts import TTFont  # Import klasy TTFont do obsługi czcionek TrueType.
 import platform  # Import modułu platform, który pozwala sprawdzić system operacyjny.
-import darkdetect  # Import biblioteki darkdetect do wykrywania, czy system używa trybu ciemnego.
 import subprocess  # Import modułu subprocess, który umożliwia wykonywanie poleceń systemowych.
 
 # Ścieżka do pliku czcionki "Aller_Lt.ttf" znajdującego się w katalogu "fonts" obok skryptu.
@@ -106,7 +105,7 @@ class ToDoApp(ctk.CTk):
     def __init__(self):
         super().__init__()  # Inicjalizacja klasy nadrzędnej `CTk` (główne okno aplikacji)
         
-        # Wykrywanie systemowego motywu – uwzględnienie systemu Linux
+        # Domyślne ustawianie ciemnego motywu przy pierwszym uruchamianiu aplikacji
         ctk.set_appearance_mode("dark")
 
         self.title("To-Do List")  # Ustawia tytuł okna aplikacji
@@ -131,7 +130,7 @@ class ToDoApp(ctk.CTk):
             width=120,  # Szerokość rozwijanego menu
             state="readonly"  # Opcja `readonly` uniemożliwia ręczne wpisywanie wartości
         )
-        self.theme_menu.pack(side="right", padx=10, pady=10)  # Umieszcza menu po prawej stronie paska
+        self.theme_menu.pack(side="right", padx=10, pady=5)  # Umieszcza menu po prawej stronie paska
 
         self.load_settings()  # Wczytuje zapisane ustawienia aplikacji (np. ostatnio używany motyw)
         self.change_theme(self.theme_var.get())  # Ustawia motyw na podstawie zapisanych ustawień
@@ -141,7 +140,7 @@ class ToDoApp(ctk.CTk):
         self.task_generator = TaskGenerator(self.task_manager, self.day_type_var, day_variations)  # Generator zadań
 
         # Tworzy nagłówek aplikacji
-        ctk.CTkLabel(self, text="Twoja Lista Zadań", font=("Arial", 16, "bold")).pack(pady=10)
+        ctk.CTkLabel(self, text="Twoja Lista Zadań", font=("Arial", 16, "bold")).pack(pady=5)
 
         # Tworzy główny kontener dla elementów interfejsu
         top_frame = ctk.CTkFrame(self, fg_color="transparent")
@@ -163,12 +162,12 @@ class ToDoApp(ctk.CTk):
         self.day_menu = ctk.CTkComboBox(right_frame, values=day_types, variable=self.day_type_var, state="readonly")
         self.day_menu.pack(pady=5)
 
-        # Przycisk generowania planu dnia
+        # Przycisk "Wygeneruj plan dnia" generujący plan dnia, lub gdy jest już wygenerowany pytający czy ma być on nadpisany nowym
         self.generate_button = ctk.CTkButton(right_frame, text="Wygeneruj plan dnia", hover_color="darkblue", command=self.generate_sorted_plan)
         self.generate_button.pack(pady=5)
 
-        # Przycisk eksportowania planu dnia do pliku PDF
-        self.export_button = ctk.CTkButton(right_frame, text="Eksportuj do PDF", fg_color="purple", hover_color="darkviolet", command=self.choose_export_option)
+        # Przycisk wysuwający dolny panel z możliwością wyboru opcji eksportu
+        self.export_button = ctk.CTkButton(right_frame, text="Eksportuj do PDF", fg_color="purple", hover_color="darkviolet", command=self.toggle_export_panel)
         self.export_button.pack(pady=5)
 
         # Główne okno na listę zadań
@@ -193,31 +192,60 @@ class ToDoApp(ctk.CTk):
         self.confirm_button = ctk.CTkButton(self.task_panel, text="Dodaj zadanie", command=self.add_task, width=70, fg_color="green", hover_color="darkgreen")
         self.confirm_button.pack(side="left", padx=5)
 
-        self.confirm_panel = ctk.CTkFrame(self)
-        self.right_frame = ctk.CTkFrame(self.confirm_panel, fg_color="transparent")
-        self.left_frame = ctk.CTkFrame(self.confirm_panel)
-        self.right_frame.pack(side="right", padx=5, fill="both")
-        self.left_frame.pack(side="left", padx=5, fill="both")
+        self.cancel_button = ctk.CTkButton(self.task_panel, text="Anuluj", fg_color="red", hover_color="darkred", width=40, command=self.toggle_task_panel)
+        self.cancel_button.pack(side="left", padx=5)
+
+        self.confirm_panel = ctk.CTkFrame(self, fg_color="transparent")
         ctk.CTkLabel(self.confirm_panel, text="Czy chcesz nadpisać aktualny plan?", font=("Arial", 16)).pack(pady=3)
-        self.confirm_button2 = ctk.CTkButton(self.left_frame, text="Tak", command=self.generate_day_plan_confirm)
-        self.cancel_button2 = ctk.CTkButton(self.right_frame, text="Nie")
-        self.confirm_button2.pack(padx=5, pady=5)
-        self.cancel_button2.pack(padx=5, pady=5)
+        self.confirm_button2 = ctk.CTkButton(self.confirm_panel, text="Tak", command=self.generate_day_plan_confirm, fg_color="green", hover_color="darkgreen")
+        self.cancel_button2 = ctk.CTkButton(self.confirm_panel, text="Nie", fg_color="red", hover_color="darkred", command=self.toggle_confirm_panel)
+        self.confirm_button2.pack(side="left", padx=5, pady=5)
+        self.cancel_button2.pack(side="left", padx=5, pady=5)
+
+        self.export_panel = ctk.CTkFrame(self, fg_color="transparent")
+        ctk.CTkLabel(self.export_panel, text="Co chcesz wyeksportować?", font=("Arial", 16), fg_color="transparent").pack(pady=3)
+        self.export_option1 = ctk.CTkButton(self.export_panel, text="Tylko dzisiaj", fg_color="purple", hover_color="darkviolet", command=self.export_to_pdf)
+        self.export_option2 = ctk.CTkButton(self.export_panel, text="Cały tydzień", fg_color="purple", hover_color="darkviolet", command=self.export_weekly_tasks_to_pdf)
+        self.cancel_button3 = ctk.CTkButton(self.export_panel, text="Anuluj", fg_color="red", hover_color="darkred", width=40, command=self.toggle_export_panel)
+        self.export_option1.pack(side="left", padx=5)
+        self.export_option2.pack(side="left", padx=5)
+        self.cancel_button3.pack(side="left", padx=5)        
 
         self.task_manager.load_tasks()  # Wczytuje zapisane zadania
         self.update_task_text_color()  # Aktualizuje kolory tekstu w zależności od motywu
 
     def toggle_task_panel(self): # Pokazuje lub chowa panel do dodawania zadań.
+        if self.confirm_panel.winfo_ismapped():
+            self.confirm_panel.pack_forget()
+        if self.export_panel.winfo_ismapped():
+            self.export_panel.pack_forget()
+
         if self.task_panel.winfo_ismapped():
             self.task_panel.pack_forget()
         else:
             self.task_panel.pack(pady=1)
 
     def toggle_confirm_panel(self): # Pokazuje lub chowa panel do dodawania zadań.
+        if self.task_panel.winfo_ismapped():
+            self.task_panel.pack_forget()
+        if self.export_panel.winfo_ismapped():
+            self.export_panel.pack_forget()
+
         if self.confirm_panel.winfo_ismapped():
             self.confirm_panel.pack_forget()
         else:
             self.confirm_panel.pack(pady=1)
+
+    def toggle_export_panel(self): # Pokazuje lub chowa panel do dodawania zadań.
+        if self.confirm_panel.winfo_ismapped():
+            self.confirm_panel.pack_forget()
+        if self.task_panel.winfo_ismapped():
+            self.task_panel.pack_forget()
+            
+        if self.export_panel.winfo_ismapped():
+            self.export_panel.pack_forget()
+        else:
+            self.export_panel.pack(pady=1)
 
     def format_time_entry(self, event):
         # Pobiera tekst z pola do wpisywania godziny
@@ -598,27 +626,6 @@ class ToDoApp(ctk.CTk):
                         y_position = height - 50
 
         c.save()
-
-    def choose_export_option(self, window_to_close=None):
-        # Definiujemy lokalną funkcję callback, która wykorzysta wynik wyboru użytkownika
-        def export_callback(response):
-            if window_to_close:
-                window_to_close.destroy()
-            if response:
-                self.export_to_pdf()
-            else:
-                self.export_weekly_tasks_to_pdf()
-
-        # Tworzymy okno dialogowe, przekazując nasz callback
-        messagebox = CustomMessageBox(self, "Eksport do PDF", "Co chcesz wyeksportować?", export_callback)
-        
-        # Zmiana tekstów przycisków, aby odpowiadały naszym opcjom
-        messagebox.confirm_button.configure(text="Tylko dzisiaj", fg_color="blue", hover_color="darkblue")
-        messagebox.cancel_button.configure(text="Cały tydzień", fg_color="blue", hover_color="darkblue")
-        
-        # Opcjonalnie pakujemy przyciski, aby mieć pewność, że są wyświetlone (inspirowane daily_summary)
-        messagebox.confirm_button.pack(pady=5)
-        messagebox.cancel_button.pack(pady=5)
 
     def generate_day_plan_confirm(self):
         self.execute_generation()
