@@ -115,8 +115,8 @@ class ToDoApp(ctk.CTk):
         self.right_frame.pack(side="right", fill="both", expand=True, padx=5)
 
         # Przycisk "Dodaj zadanie" wysuwający dolny panel z polami do wpisywania godziny i minut, jak i przyciskiem do dodawania zadań
-        self.toggle_input_button = ctk.CTkButton(self.left_frame, text="Dodaj zadanie", fg_color="green", hover_color="darkgreen", command=self.toggle_task_panel) 
-        self.toggle_input_button.pack(pady=5)
+        self.toggle_task_panel_button = ctk.CTkButton(self.left_frame, text="Dodaj zadanie", fg_color="green", hover_color="darkgreen", command=self.toggle_task_panel) 
+        self.toggle_task_panel_button.pack(pady=5)
 
         # Rozwijane menu do wyboru planu dnia
         self.day_menu = ctk.CTkComboBox(self.right_frame, values=day_types, variable=self.day_type_var, state="readonly")
@@ -127,8 +127,8 @@ class ToDoApp(ctk.CTk):
         self.generate_button.pack(pady=5)
 
         # Przycisk wysuwający dolny panel z możliwością wyboru opcji eksportu
-        self.export_button = ctk.CTkButton(self.right_frame, text="Eksportuj do PDF", fg_color="purple", hover_color="darkviolet", command=self.toggle_export_panel)
-        self.export_button.pack(pady=5)
+        self.export_panel_button = ctk.CTkButton(self.right_frame, text="Eksportuj do PDF", fg_color="purple", hover_color="darkviolet", command=self.toggle_export_panel)
+        self.export_panel_button.pack(pady=5)
 
         # Główne okno na listę zadań
         self.task_container = ctk.CTkFrame(self, fg_color="transparent")
@@ -568,7 +568,7 @@ class ToDoApp(ctk.CTk):
                 elif platform.system() == "Darwin":  # Jeśli system to macOS
                     subprocess.call(["open", file_path])  # Otwiera plik poleceniem "open"
                 else:  # Jeśli system to Linux
-                    subprocess.call(["xdg-open", file_path])  # Otwiera plik poleceniem "xdg-open"
+                    subprocess.Popen(["evince", file_path], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
             except Exception as e:  # Jeśli wystąpił błąd
                 print(f"Nie udało się otworzyć pliku: {e}")  # Wypisuje komunikat o błędzie
         else:
@@ -576,19 +576,22 @@ class ToDoApp(ctk.CTk):
 
     def save_tasks_to_json(self):
         date_str = datetime.now().strftime('%Y_%m_%d')
+        selected_day_type = self.day_type_var.get()
         json_filename = f"harmonogram_{date_str}.json"
-
-        tasks_data = []
+        
+        tasks_data = {
+            "date": date_str,
+            "day_type": selected_day_type,
+            "tasks": []
+        }
         for task in self.task_manager.tasks:
-            tasks_data.append({
+            tasks_data["tasks"].append({
                 "text": task.text,
                 "done": task.done
             })
 
         with open(json_filename, "w", encoding="utf-8") as json_file:
             json.dump(tasks_data, json_file, indent=4, ensure_ascii=False)
-
-    import json
 
     def export_weekly_tasks_to_pdf(self):
         # Ustalamy daty początkową i końcową tygodnia
@@ -619,19 +622,32 @@ class ToDoApp(ctk.CTk):
         y_position -= 30
 
         all_week_tasks = []
+        
+        # Podsumowanie zadań
         for i in range(7):
             date_str = (datetime.now() - timedelta(days=i)).strftime('%Y_%m_%d')
             json_filename = f"harmonogram_{date_str}.json"
+
             if os.path.exists(json_filename):
                 with open(json_filename, "r", encoding="utf-8") as json_file:
-                    tasks_data = json.load(json_file)
+                    day_data = json.load(json_file)
+
+                    # Sprawdzamy, czy dane to słownik czy lista
+                    if isinstance(day_data, list):
+                        tasks_data = day_data  # Jeśli to lista, przypisujemy ją bezpośrednio
+                        day_type = "Brak informacji"
+                    elif isinstance(day_data, dict):
+                        tasks_data = day_data.get("tasks", [])
+                        day_type = day_data.get("day_type", "Brak informacji")
+                    else:
+                        continue  # Jeśli format jest błędny, pomijamy ten dzień
+
                     all_week_tasks.extend(tasks_data)
 
         total_tasks = len(all_week_tasks)
-        done_tasks = sum(1 for task in all_week_tasks if task['done'])
+        done_tasks = sum(1 for task in all_week_tasks if task.get('done', False))
         not_done_tasks = total_tasks - done_tasks
 
-        c.setFont("Aller_Lt", 12)
         summary_lines = [
             f"Podsumowanie:",
             f"Wszystkie zadania: {total_tasks}",
@@ -650,19 +666,30 @@ class ToDoApp(ctk.CTk):
             # Sprawdzamy, czy plik JSON istnieje
             if os.path.exists(json_filename):
                 with open(json_filename, "r", encoding="utf-8") as json_file:
-                    tasks_data = json.load(json_file)
+                    day_data = json.load(json_file)
+
+                    # Sprawdzamy format danych
+                    if isinstance(day_data, list):
+                        tasks_data = day_data
+                        day_type = "Brak informacji"
+                    elif isinstance(day_data, dict):
+                        tasks_data = day_data.get("tasks", [])
+                        day_type = day_data.get("day_type", "Brak informacji")
+                    else:
+                        continue  # Jeśli format jest błędny, pomijamy ten dzień
 
                 # Dodanie nagłówka dla danego dnia
                 c.setFont("Aller_Lt", 14)
                 c.setFillColor(colors.blue)
-                c.drawString(50, y_position, f"{date_str}")
+                c.drawString(50, y_position, f"{date_str} ({day_type})")  # Typ dnia obok daty
                 y_position -= 20
+                
 
                 c.setFont("Aller_Lt", 12)
                 # Wypisujemy zadania
                 for task in tasks_data:
-                    c.setFillColor(colors.green if task["done"] else colors.black)
-                    c.drawString(50, y_position, f"- {task['text']}")
+                    c.setFillColor(colors.green if task.get("done", False) else colors.black)
+                    c.drawString(50, y_position, f"- {task.get('text', 'Brak opisu')}")
                     y_position -= 20
 
                     if y_position < 50:
