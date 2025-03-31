@@ -68,39 +68,6 @@ day_variations = load_day_variations()
 # Tworzy listę nazw dostępnych wariantów planów dnia
 day_types = list(day_variations.keys())
 
-class CustomMessageBox(ctk.CTkToplevel):
-    def __init__(self, master, title, message, on_confirm):
-        super().__init__(master)  # Inicjalizuje okno dialogowe jako `Toplevel`
-
-        self.title(title)  # Ustawia tytuł okna dialogowego
-        self.geometry("300x175")  # Ustawia rozmiar okna na 300x175 pikseli
-        self.resizable(False, False) # Blokuje możliwość zmiany rozmiaru okna
-        self.on_confirm = on_confirm  # Przechowuje funkcję wywoływaną po wyborze
-
-        # Tworzy etykietę (label) z wiadomością dla użytkownika
-        self.label = ctk.CTkLabel(self, text=message)
-        self.label.pack(pady=20)  # Dodaje odstęp pionowy (20 pikseli)
-
-        # Tworzy przycisk "Tak", który potwierdza akcję
-        self.confirm_button = ctk.CTkButton(self, text="Tak", command=self.confirm, fg_color="green")
-        self.confirm_button.pack(pady=10)  # Dodaje odstęp pionowy (10 pikseli)
-
-        # Tworzy przycisk "Nie", który anuluje akcję
-        self.cancel_button = ctk.CTkButton(self, text="Nie", command=self.cancel, fg_color="red")
-        self.cancel_button.pack(pady=5)  # Dodaje odstęp pionowy (5 pikseli)
-
-        self.update_idletasks()  # Aktualizuje interfejs, aby poprawnie wyświetlić elementy
-        self.wait_visibility()  # Czeka, aż okno stanie się widoczne
-        self.grab_set()  # Blokuje interakcję z głównym oknem aplikacji, dopóki użytkownik nie zamknie tego okna
-
-    def confirm(self):
-        self.on_confirm(True)  # Wywołuje funkcję zwrotną `on_confirm`, przekazując wartość `True`
-        self.destroy()  # Zamknięcie okna dialogowego
-
-    def cancel(self):
-        self.on_confirm(False)  # Wywołuje funkcję zwrotną `on_confirm`, przekazując wartość `False`
-        self.destroy()  # Zamknięcie okna dialogowego
-
 class ToDoApp(ctk.CTk):
     def __init__(self):
         super().__init__()  # Inicjalizacja klasy nadrzędnej `CTk` (główne okno aplikacji)
@@ -113,8 +80,8 @@ class ToDoApp(ctk.CTk):
         self.resizable(False, False)
 
         # Tworzy górny pasek interfejsu
-        top_bar = ctk.CTkFrame(self, fg_color="transparent")
-        top_bar.pack(side="top", fill="x")  # Umieszcza pasek na górze okna, rozciągając go na całą szerokość
+        self.top_bar = ctk.CTkFrame(self, fg_color="transparent")
+        self.top_bar.pack(side="top", fill="x")  # Umieszcza pasek na górze okna, rozciągając go na całą szerokość
 
         theme_options = ["Jasny", "Ciemny"]  # Na Linuxie dostępne są tylko dwa tryby
         self.theme_var = ctk.StringVar(value="Ciemny")  # Domyślnie ustawiony tryb ciemny
@@ -122,14 +89,7 @@ class ToDoApp(ctk.CTk):
         self.task_manager = TaskManager(self)  # Inicjalizacja menedżera zadań
 
         # Tworzy rozwijane menu do wyboru motywu aplikacji
-        self.theme_menu = ctk.CTkComboBox(
-            master=top_bar,
-            values=theme_options,  # Lista dostępnych opcji motywu
-            variable=self.theme_var,  # Powiązanie wyboru z `self.theme_var`
-            command=self.change_theme,  # Wywołanie metody zmieniającej motyw po wyborze
-            width=120,  # Szerokość rozwijanego menu
-            state="readonly"  # Opcja `readonly` uniemożliwia ręczne wpisywanie wartości
-        )
+        self.theme_menu = ctk.CTkComboBox(master=self.top_bar, values=theme_options, variable=self.theme_var, command=self.change_theme, width=120, state="readonly")
         self.theme_menu.pack(side="right", padx=10, pady=5)  # Umieszcza menu po prawej stronie paska
 
         self.load_settings()  # Wczytuje zapisane ustawienia aplikacji (np. ostatnio używany motyw)
@@ -143,41 +103,41 @@ class ToDoApp(ctk.CTk):
         ctk.CTkLabel(self, text="Twoja Lista Zadań", font=("Arial", 16, "bold")).pack(pady=5)
 
         # Tworzy główny kontener dla elementów interfejsu
-        top_frame = ctk.CTkFrame(self, fg_color="transparent")
-        top_frame.pack(pady=5, fill="x")  # Dodaje odstęp i wypełnia szerokość okna
+        self.top_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.top_frame.pack(pady=5, fill="x")  # Dodaje odstęp i wypełnia szerokość okna
 
         # Lewa część interfejsu (pole do wpisywania zadań)
-        left_frame = ctk.CTkFrame(top_frame, fg_color="transparent")
-        left_frame.pack(side="left", fill="both", expand=True, padx=5)
+        self.left_frame = ctk.CTkFrame(self.top_frame, fg_color="transparent")
+        self.left_frame.pack(side="left", fill="both", expand=True, padx=5)
 
         # Prawa część interfejsu (wybór planu dnia i generowanie zadań)
-        right_frame = ctk.CTkFrame(top_frame, fg_color="transparent")
-        right_frame.pack(side="right", fill="both", expand=True, padx=5)
+        self.right_frame = ctk.CTkFrame(self.top_frame, fg_color="transparent")
+        self.right_frame.pack(side="right", fill="both", expand=True, padx=5)
 
         # Przycisk "Dodaj zadanie" wysuwający dolny panel z polami do wpisywania godziny i minut, jak i przyciskiem do dodawania zadań
-        self.toggle_input_button = ctk.CTkButton(left_frame, text="Dodaj zadanie", fg_color="green", hover_color="darkgreen", command=self.toggle_task_panel) 
+        self.toggle_input_button = ctk.CTkButton(self.left_frame, text="Dodaj zadanie", fg_color="green", hover_color="darkgreen", command=self.toggle_task_panel) 
         self.toggle_input_button.pack(pady=5)
 
         # Rozwijane menu do wyboru planu dnia
-        self.day_menu = ctk.CTkComboBox(right_frame, values=day_types, variable=self.day_type_var, state="readonly")
+        self.day_menu = ctk.CTkComboBox(self.right_frame, values=day_types, variable=self.day_type_var, state="readonly")
         self.day_menu.pack(pady=5)
 
         # Przycisk "Wygeneruj plan dnia" generujący plan dnia, lub gdy jest już wygenerowany pytający czy ma być on nadpisany nowym
-        self.generate_button = ctk.CTkButton(right_frame, text="Wygeneruj plan dnia", hover_color="darkblue", command=self.generate_sorted_plan)
+        self.generate_button = ctk.CTkButton(self.right_frame, text="Wygeneruj plan dnia", hover_color="darkblue", command=self.generate_sorted_plan)
         self.generate_button.pack(pady=5)
 
         # Przycisk wysuwający dolny panel z możliwością wyboru opcji eksportu
-        self.export_button = ctk.CTkButton(right_frame, text="Eksportuj do PDF", fg_color="purple", hover_color="darkviolet", command=self.toggle_export_panel)
+        self.export_button = ctk.CTkButton(self.right_frame, text="Eksportuj do PDF", fg_color="purple", hover_color="darkviolet", command=self.toggle_export_panel)
         self.export_button.pack(pady=5)
 
         # Główne okno na listę zadań
         self.task_container = ctk.CTkFrame(self, fg_color="transparent")
         self.task_container.pack(pady=10, fill="both", expand=True)
 
-        self.history_button = ctk.CTkButton(left_frame, text="Historia", hover_color="darkblue", command=self.show_history)
+        self.history_button = ctk.CTkButton(self.left_frame, text="Historia", hover_color="darkblue", command=self.show_history_fullscreen)
         self.history_button.pack(side="top", pady=5)
 
-        self.summary_button = ctk.CTkButton(left_frame, text="Podsumowanie dnia", fg_color="purple", hover_color="darkviolet", command=self.daily_summary)
+        self.summary_button = ctk.CTkButton(self.left_frame, text="Podsumowanie dnia", fg_color="purple", hover_color="darkviolet", command=self.daily_summary)
         self.summary_button.pack(side="top", pady=5)
         
         # Dolny panel (ukryty na start)
@@ -209,7 +169,11 @@ class ToDoApp(ctk.CTk):
         self.cancel_button3 = ctk.CTkButton(self.export_panel, text="Anuluj", fg_color="red", hover_color="darkred", width=40, command=self.toggle_export_panel)
         self.export_option1.pack(side="left", padx=5)
         self.export_option2.pack(side="left", padx=5)
-        self.cancel_button3.pack(side="left", padx=5)        
+        self.cancel_button3.pack(side="left", padx=5)
+
+        self.summary_panel = ctk.CTkFrame(self, fg_color="transparent")
+
+        self.history_panel = ctk.CTkFrame(self, fg_color="transparent")
 
         self.task_manager.load_tasks()  # Wczytuje zapisane zadania
         self.update_task_text_color()  # Aktualizuje kolory tekstu w zależności od motywu
@@ -219,6 +183,8 @@ class ToDoApp(ctk.CTk):
             self.confirm_panel.pack_forget()
         if self.export_panel.winfo_ismapped():
             self.export_panel.pack_forget()
+        if self.summary_panel.winfo_ismapped():
+            self.summary_panel.pack_forget()
 
         if self.task_panel.winfo_ismapped():
             self.task_panel.pack_forget()
@@ -230,6 +196,8 @@ class ToDoApp(ctk.CTk):
             self.task_panel.pack_forget()
         if self.export_panel.winfo_ismapped():
             self.export_panel.pack_forget()
+        if self.summary_panel.winfo_ismapped():
+            self.summary_panel.pack_forget()
 
         if self.confirm_panel.winfo_ismapped():
             self.confirm_panel.pack_forget()
@@ -241,11 +209,27 @@ class ToDoApp(ctk.CTk):
             self.confirm_panel.pack_forget()
         if self.task_panel.winfo_ismapped():
             self.task_panel.pack_forget()
-            
+        if self.summary_panel.winfo_ismapped():
+            self.summary_panel.pack_forget()
+
         if self.export_panel.winfo_ismapped():
             self.export_panel.pack_forget()
         else:
             self.export_panel.pack(pady=1)
+
+    def toggle_summary_panel(self):
+        # Ukryj inne dolne panele, jeśli są wysunięte
+        if self.task_panel.winfo_ismapped():
+            self.task_panel.pack_forget()
+        if self.confirm_panel.winfo_ismapped():
+            self.confirm_panel.pack_forget()
+        if self.export_panel.winfo_ismapped():
+            self.export_panel.pack_forget()
+            
+        if self.summary_panel.winfo_ismapped():
+            self.summary_panel.pack_forget()
+        else:
+            self.summary_panel.pack(pady=1)
 
     def format_time_entry(self, event):
         # Pobiera tekst z pola do wpisywania godziny
@@ -401,34 +385,50 @@ class ToDoApp(ctk.CTk):
                 except json.JSONDecodeError:
                     pass  # Jeśli plik JSON jest uszkodzony, ignoruje błąd
     
-    def daily_summary(self):  # Zliczenie zadań wykonanych oraz niewykonanych
-        total_tasks = len(self.task_manager.tasks)  # Pobiera całkowitą liczbę zadań
-        done_tasks = sum(1 for task in self.task_manager.tasks if task.done)  # Liczy wykonane zadania
-        undone_tasks = total_tasks - done_tasks  # Oblicza liczbę niewykonanych zadań
+    def daily_summary(self):
+        if self.task_panel.winfo_ismapped():
+            self.task_panel.pack_forget()
+        if self.confirm_panel.winfo_ismapped():
+            self.confirm_panel.pack_forget()
+        if self.export_panel.winfo_ismapped():
+            self.export_panel.pack_forget()
+        
+        if self.summary_panel.winfo_ismapped():
+            self.summary_panel.forget()
+        else:
+            self.summary_panel.pack(pady=1)
+        
+        # Oblicz podsumowanie dnia
+        total_tasks = len(self.task_manager.tasks)
+        done_tasks = sum(1 for task in self.task_manager.tasks if task.done)
+        undone_tasks = total_tasks - done_tasks
 
-        # Przygotowanie tekstu raportu
         report = (
             f"Wykonane zadania: {done_tasks}\n"
-            f"Niewykonane zadania: {undone_tasks}\n"
+            f"Niewykonane zadania: {undone_tasks}"
         )
 
-        # Tworzy okno popup do wyświetlenia podsumowania dnia
-        popup = CustomMessageBox(self, "Podsumowanie dnia", report, self.handle_summary_response)
-        popup.geometry("300x225")  # Ustawia rozmiar popupu na 300x225 pikseli
+        # Wyczyść panel podsumowania, jeśli zawiera jakieś poprzednie widgety
+        for widget in self.summary_panel.winfo_children():
+            widget.destroy()
 
-        # Konfiguracja przycisków w popupie
-        popup.confirm_button.configure(text="Zapisz jako plik .txt", hover_color="darkgreen")  # Zmienia tekst i kolor podświetlenia przycisku
-        popup.cancel_button.configure(text="Zamknij", hover_color="darkred")  # Zmienia tekst i kolor podświetlenia przycisku "Zamknij"
-        popup.confirm_button.pack(pady=5)  # Dodaje odstęp pionowy dla przycisku "Zapisz jako TXT"
-        popup.cancel_button.pack(pady=5)  # Dodaje odstęp pionowy dla przycisku "Zamknij"
+        # Dodaj etykietę z podsumowaniem
+        summary_label = ctk.CTkLabel(self.summary_panel, text=report, font=("Arial", 14))
+        summary_label.pack(pady=5)
 
-        # Dodaje nowy przycisk "Zapisz jako plik .pdf" do popupu
-        pdf_button = ctk.CTkButton(
-            popup, text="Zapisz jako plik .pdf", fg_color="purple", hover_color="darkviolet",
-            command=lambda: self.save_summary_pdf(report, popup)  # Przekazuje raport i popup do funkcji zapisującej PDF
-        )
-        pdf_button.pack(pady=5)  # Wyświetla przycisk w popupie z odstępem pionowym
+        # Dodaj przycisk do zapisu jako plik .txt
+        btn_txt = ctk.CTkButton(self.summary_panel, text="Zapisz jako .txt", fg_color="green", hover_color="darkgreen", command=lambda: self.save_summary_txt(report))
+        btn_txt.pack(side="left", padx=5, pady=5)
 
+        # Dodaj przycisk do zapisu jako plik .pdf
+        btn_pdf = ctk.CTkButton(self.summary_panel, text="Zapisz jako .pdf", fg_color="purple", hover_color="darkviolet", command=lambda: self.save_summary_pdf(report, None))
+        btn_pdf.pack(side="left", padx=5, pady=5)
+
+        btn_cancel = ctk.CTkButton(self.summary_panel, text="Anuluj", fg_color="red", hover_color="darkred", width=40, command=self.toggle_summary_panel)
+        btn_cancel.pack(side="left", padx=5)
+
+        # Przełącz widoczność panelu podsumowania:
+        
     def save_summary_pdf(self, report, popup):
         today_date = datetime.now().strftime("%Y-%m-%d")  # Pobiera aktualną datę w formacie YYYY-MM-DD
 
@@ -459,7 +459,7 @@ class ToDoApp(ctk.CTk):
                     y_position = height - 50  # Resetuje pozycję tekstu
 
             c.save()  # Zapisuje plik PDF
-        popup.destroy()  # Zamyka popup po zapisaniu pliku
+        self.summary_panel.pack_forget()
 
     def handle_summary_response(self, response):
         if response:
@@ -490,26 +490,55 @@ class ToDoApp(ctk.CTk):
         if file_path:
             with open(file_path, "w", encoding="utf-8") as file:  # Otwiera plik w trybie zapisu z kodowaniem UTF-8
                 file.write(report)  # Zapisuje treść raportu do pliku
+        self.summary_panel.pack_forget()
 
-    def show_history(self):
-        history_window = ctk.CTkToplevel(self)  # Tworzy nowe okno podrzędne
-        history_window.title("Historia - Ostatni tydzień")  # Ustawia tytuł okna
-        history_window.geometry("300x350")  # Ustawia rozmiar okna
-        history_window.resizable(False, False)  # Blokuje możliwość zmiany rozmiaru
-        history_window.attributes('-topmost', True)  # Ustawia okno na wierzchu
+    def show_history_fullscreen(self):
+        # Ukryj wszystkie główne widgety (wszystkie dzieci okna oprócz history_panel)
+        for widget in self.winfo_children():
+            if widget != self.history_panel:
+                widget.pack_forget()
+        
+        # Wyczyść panel historii
+        for widget in self.history_panel.winfo_children():
+            widget.destroy()
+        
+        # Pokaż panel historii, aby zajął cały obszar
+        self.history_panel.pack(fill="both", expand=True)
+        
+        # Etykieta nagłówkowa
+        header = ctk.CTkLabel(self.history_panel, text="Wybierz datę:", font=("Arial", 16))
+        header.pack(pady=10)
+        
+        # Ramka na przyciski ułożone w jednej kolumnie
+        button_frame = ctk.CTkFrame(self.history_panel, fg_color="transparent")
+        button_frame.pack(fill="x", padx=10, pady=10)
+        
+        today = datetime.today()
+        # Utwórz przyciski dla ostatnich 7 dni (każdy w osobnym wierszu)
+        for i in range(7):
+            date_obj = today - timedelta(days=i+1)
+            date_str = date_obj.strftime("%Y-%m-%d")
+            btn = ctk.CTkButton(button_frame, text=date_str, corner_radius=10, command=lambda d=date_str: self.open_history_pdf(d), hover_color="darkblue", width=200)
+            btn.pack(side="top", padx=5, pady=5)
+        
+        # Dodaj przycisk eksportu poniżej przycisków z datami (również w osobnym wierszu)
+        export_button = ctk.CTkButton(button_frame, text="Eksportuj cały tydzień do pdf", command=self.export_weekly_tasks_to_pdf, fg_color="purple", hover_color="darkviolet", width=200)
+        export_button.pack(side="top", padx=5, pady=5)
+        
+        # Przycisk powrotu – umożliwia przywrócenie głównego widoku
+        btn_return = ctk.CTkButton(self.history_panel, text="Powrót", fg_color="red", hover_color="darkred", command=self.restore_main_view)
+        btn_return.pack(pady=10)
 
-        label = ctk.CTkLabel(history_window, text="Wybierz datę:")  # Tworzy etykietę z tekstem
-        label.pack(pady=(10, 5))  # Wyświetla etykietę z odstępem
-
-        today = datetime.today()  # Pobiera dzisiejszą datę
-        for i in range(7):  # Iteruje przez ostatnie 7 dni
-            date = today - timedelta(days=i+1)  # Oblicza datę sprzed i+1 dni
-            dates = date.strftime("%Y-%m-%d")  # Formatuje datę jako string
-
-            date_button = ctk.CTkButton(history_window, text=dates, corner_radius=10, command=lambda d=dates, history_window=history_window: [self.open_history_pdf(d), history_window.destroy()], hover_color="darkblue")  # Tworzy przyciski z datami w popupie
-            date_button.pack(pady=5, fill="x")  # Wyświetla przycisk z odstępem i szerokością dopasowaną do okna
-        export_button = ctk.CTkButton(history_window, text="Eksportuj cały tydzień do pdf", command=lambda: [self.export_weekly_tasks_to_pdf(), history_window.destroy()], fg_color="purple", hover_color="darkviolet")
-        export_button.pack(pady=5, fill="x")
+    def restore_main_view(self):
+        # Ukryj panel historii
+        self.history_panel.pack_forget()
+        
+        # Przywróć główny widok – zapakuj zapisane wcześniej kontenery
+        self.top_bar.pack(side="top", fill="x")
+        self.top_frame.pack(pady=5, fill="x")
+        self.left_frame.pack(side="left", fill="both", expand=True, padx=5)
+        self.right_frame.pack(side="right", fill="both", expand=True, padx=5)
+        self.task_container.pack(pady=10, fill="both", expand=True)
 
     def open_history_pdf(self, dates):
         base_dir = os.path.dirname(__file__)  # Pobiera katalog, w którym znajduje się plik skryptu
