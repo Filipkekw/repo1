@@ -458,6 +458,21 @@ class ToDoApp(ctk.CTk):
                     c.setFont("Aller_Lt", 12)  # Ponownie ustawia czcionkę
                     y_position = height - 50  # Resetuje pozycję tekstu
 
+            c.setFont("Aller_Lt", 12)
+            for task in self.task_manager.tasks:
+                if task.done:
+                    c.setFillColor(colors.green)
+                else:
+                    c.setFillColor(colors.black)
+                
+                c.drawString(50, y_position, f"- {task.text}")
+                y_position -= 20
+                # Jeśli miejsce na stronie się skończy, tworzy nową stronę
+                if y_position < 50:
+                    c.showPage()
+                    c.setFont("Aller_Lt", 12)
+                    y_position = height - 50
+
             c.save()  # Zapisuje plik PDF
         self.summary_panel.pack_forget()
 
