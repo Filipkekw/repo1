@@ -176,6 +176,7 @@ class ToDoApp(ctk.CTk):
         self.history_panel = ctk.CTkFrame(self, fg_color="transparent")
 
         self.task_manager.load_tasks()  # Wczytuje zapisane zadania
+        self.task_manager.sort_tasks()
         self.update_task_text_color()  # Aktualizuje kolory tekstu w zależności od motywu
 
     def toggle_task_panel(self): # Pokazuje lub chowa panel do dodawania zadań.
